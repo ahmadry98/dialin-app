@@ -48,3 +48,19 @@ Join our community of developers creating universal apps.
 
 - [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
 - [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+
+## DialChat / AI Shot Analysis
+
+Run the FastAPI backend first, then point Expo at it. The iOS simulator can use localhost; a real phone needs your Mac LAN IP.
+
+```bash
+EXPO_PUBLIC_AI_SHOT_API_URL=http://localhost:8000 npm run ios
+```
+
+For a real phone on the same Wi-Fi:
+
+```bash
+EXPO_PUBLIC_AI_SHOT_API_URL=http://YOUR_MAC_IP:8000 npm run ios
+```
+
+Machine and grinder photos are sent as base64 for recognition. Shot videos use the backend media flow: create upload URL, upload the file, register the media, then send the returned key to DialChat.
