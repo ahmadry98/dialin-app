@@ -104,3 +104,83 @@ export async function sendAIShotChat(messages: ChatMessage[], shotContext?: Shot
 
   return response.json();
 }
+
+
+export type MediaKind = "shot_video" | "machine_photo" | "grinder_photo";
+
+export type MediaUploadUrlResponse = {
+  media_key: string;
+  upload_url: string;
+  method: "PUT";
+  headers: Record<string, string>;
+  storage_mode: "local" | "s3";
+  expires_in_seconds: number;
+};
+
+export type MediaRegisterResponse = {
+  media_key: string;
+  video_s3_key?: string | null;
+  media_kind: MediaKind;
+  storage_mode: "local" | "s3";
+  content_type?: string | null;
+};
+
+export async function createMediaUploadUrl(params: {
+  filename: string;
+  content_type: string;
+  media_kind: MediaKind;
+  user_id?: string;
+}): Promise<MediaUploadUrlResponse> {
+  const response = await fetch(`${AI_SHOT_API_BASE_URL}/media/upload-url`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...params, user_id: params.user_id || "demo-user" }),
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(text || `Could not create upload URL: ${response.status}`);
+  }
+
+  return response.json();
+}
+
+export async function uploadFileToMediaUrl(params: {
+  file_uri: string;
+  upload_url: string;
+  content_type: string;
+  headers?: Record<string, string>;
+}): Promise<void> {
+  const fileResponse = await fetch(params.file_uri);
+  const blob = await fileResponse.blob();
+  const response = await fetch(params.upload_url, {
+    method: "PUT",
+    headers: { ...(params.headers || {}), "Content-Type": params.content_type },
+    body: blob,
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(text || `Media upload failed with status ${response.status}`);
+  }
+}
+
+export async function registerMediaUpload(params: {
+  media_key: string;
+  media_kind: MediaKind;
+  storage_mode: "local" | "s3";
+  content_type?: string;
+}): Promise<MediaRegisterResponse> {
+  const response = await fetch(`${AI_SHOT_API_BASE_URL}/media/register`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(params),
+  });
+
+  if (!response.ok) {
+    const text = await response.text().catch(() => "");
+    throw new Error(text || `Could not register media: ${response.status}`);
+  }
+
+  return response.json();
+}
