@@ -16,12 +16,21 @@ import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 
 import { clamp, s } from "../utils/ui";
-import { sendAIShotChat, type AnalyzeShotResponse, type ChatMessage, type ShotContext } from "../lib/aiShotApi";
+import {
+  createMediaUploadUrl,
+  registerMediaUpload,
+  sendAIShotChat,
+  uploadFileToMediaUrl,
+  type AnalyzeShotResponse,
+  type ChatMessage,
+  type ShotContext,
+} from "../lib/aiShotApi";
 
 type LocalMessage = ChatMessage & {
   id: string;
   attachment_uri?: string | null;
   attachment_label?: string | null;
+  attachment_type?: "image" | "video" | null;
 };
 
 type AIShotChatProps = {
@@ -77,12 +86,14 @@ export default function AIShotChat({ machineName }: AIShotChatProps) {
     await sendMessage({ id: `${Date.now()}-user`, role: "user", content: text });
   }
 
-  async function sendMessage(userMessage: LocalMessage) {
+  async function sendMessage(userMessage: LocalMessage, contextOverride?: ShotContext) {
     if (isSending) return;
 
     setError(null);
     const nextMessages = [...messages, userMessage];
+    const contextForRequest = contextOverride ?? shotContext;
     setMessages(nextMessages);
+    if (contextOverride) setShotContext(contextOverride);
     setIsSending(true);
 
     try {
@@ -94,7 +105,7 @@ export default function AIShotChat({ machineName }: AIShotChatProps) {
           image_kind,
           image_media_type,
         })),
-        shotContext,
+        contextForRequest,
       );
       const assistantMessage: LocalMessage = {
         id: `${Date.now()}-assistant`,
@@ -102,7 +113,7 @@ export default function AIShotChat({ machineName }: AIShotChatProps) {
         content: response.response,
       };
       setMessages([...nextMessages, assistantMessage]);
-      setShotContext(response.shot_context ?? shotContext);
+      setShotContext(response.shot_context ?? contextForRequest);
       if (response.analysis_result) {
         setAnalysis(response.analysis_result);
         setAnalysisOpen(true);
@@ -115,25 +126,31 @@ export default function AIShotChat({ machineName }: AIShotChatProps) {
     }
   }
 
-  async function attachPhoto(kind: "machine" | "grinder") {
+  async function attachMedia() {
     if (isSending) return;
 
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Permission needed", "Allow photo library access to attach a machine or grinder photo.");
+      Alert.alert("Permission needed", "Allow photo library access to attach a photo or shot video.");
       return;
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsEditing: false,
       base64: true,
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.7,
+      mediaTypes: ["images", "videos"],
+      quality: 0.8,
     });
 
     if (result.canceled || !result.assets.length) return;
 
     const asset = result.assets[0];
+    if (asset.type === "video" || isVideoAsset(asset)) {
+      await attachShotVideoAsset(asset);
+      return;
+    }
+
+    const kind = inferPhotoKind(shotContext);
     if (!asset.base64) {
       Alert.alert("Could not read photo", "Try choosing a different image.");
       return;
@@ -142,23 +159,62 @@ export default function AIShotChat({ machineName }: AIShotChatProps) {
     await sendMessage({
       id: `${Date.now()}-${kind}-photo`,
       role: "user",
-      content: `${kind === "machine" ? "Machine" : "Grinder"} photo attached`,
+      content: "Photo attached",
       image_base64: asset.base64,
       image_media_type: asset.mimeType || "image/jpeg",
       image_kind: kind,
       attachment_uri: asset.uri,
-      attachment_label: kind === "machine" ? "Machine photo" : "Grinder photo",
+      attachment_label: null,
+      attachment_type: "image",
     });
   }
 
-  function openAttachMenu() {
-    Alert.alert("Attach", "Photos work now. Shot video upload comes next with S3 storage.", [
-      { text: "Machine photo", onPress: () => attachPhoto("machine") },
-      { text: "Grinder photo", onPress: () => attachPhoto("grinder") },
-      { text: "Shot video", onPress: () => Alert.alert("Video upload is next", "Checkpoint 18 will upload videos to S3 before analysis.") },
-      { text: "Cancel", style: "cancel" },
-    ]);
+  async function attachShotVideoAsset(asset: ImagePicker.ImagePickerAsset) {
+    const filename = asset.fileName || asset.uri.split("/").pop() || "shot-video.mov";
+    const contentType = asset.mimeType || (filename.toLowerCase().endsWith(".mov") ? "video/quicktime" : "video/mp4");
+
+    setError(null);
+    setIsSending(true);
+    try {
+      const target = await createMediaUploadUrl({
+        filename,
+        content_type: contentType,
+        media_kind: "shot_video",
+        user_id: shotContext.user_id || "demo-user",
+      });
+      await uploadFileToMediaUrl({
+        file_uri: asset.uri,
+        upload_url: target.upload_url,
+        content_type: contentType,
+        headers: target.headers,
+      });
+      const registered = await registerMediaUpload({
+        media_key: target.media_key,
+        media_kind: "shot_video",
+        storage_mode: target.storage_mode,
+        content_type: contentType,
+      });
+
+      const nextContext = { ...shotContext, video_s3_key: registered.video_s3_key || registered.media_key };
+      setIsSending(false);
+      await sendMessage(
+        {
+          id: `${Date.now()}-shot-video`,
+          role: "user",
+          content: "Shot video attached",
+          attachment_uri: asset.uri,
+          attachment_label: null,
+          attachment_type: "video",
+        },
+        nextContext,
+      );
+    } catch (uploadError) {
+      const message = uploadError instanceof Error ? uploadError.message : "Could not upload the shot video.";
+      setError(message);
+      setIsSending(false);
+    }
   }
+
 
   const contextSummary = useMemo(() => summarizeContext(shotContext), [shotContext]);
 
@@ -245,7 +301,7 @@ export default function AIShotChat({ machineName }: AIShotChatProps) {
             />
 
             <Pressable
-              onPress={openAttachMenu}
+              onPress={attachMedia}
               accessibilityLabel="Attach photo or video"
               style={({ pressed }) => ({
                 width: s(48),
@@ -285,6 +341,19 @@ export default function AIShotChat({ machineName }: AIShotChatProps) {
   );
 }
 
+function inferPhotoKind(context: ShotContext): "machine" | "grinder" {
+  if (!context.machine || context.pending_gear_type === "machine") return "machine";
+  if (!context.uses_built_in_grinder && (!context.grinder || context.pending_gear_type === "grinder")) return "grinder";
+  return "machine";
+}
+
+function isVideoAsset(asset: ImagePicker.ImagePickerAsset): boolean {
+  const mime = asset.mimeType?.toLowerCase() || "";
+  const uri = asset.uri.toLowerCase();
+  return mime.startsWith("video/") || /\.(mov|mp4|m4v)$/i.test(uri);
+}
+
+
 function Bubble({ message }: { message: LocalMessage }) {
   const isUser = message.role === "user";
   return (
@@ -303,14 +372,27 @@ function Bubble({ message }: { message: LocalMessage }) {
     >
       {message.attachment_uri ? (
         <View>
-          <Image
-            source={{ uri: message.attachment_uri }}
-            style={{ width: s(210), height: s(210), borderRadius: s(17), backgroundColor: "#E5E7EB" }}
-            resizeMode="cover"
-          />
-          <Text style={{ marginTop: s(8), paddingHorizontal: s(7), paddingBottom: s(5), color: "#111827", fontWeight: "800" }}>
-            {message.attachment_label || message.content}
-          </Text>
+          {message.attachment_type === "video" ? (
+            <View
+              style={{
+                width: s(210),
+                minHeight: s(142),
+                borderRadius: s(17),
+                backgroundColor: "#111113",
+                alignItems: "center",
+                justifyContent: "center",
+                padding: s(16),
+              }}
+            >
+              <Ionicons name="play-circle" size={44} color="white" />
+            </View>
+          ) : (
+            <Image
+              source={{ uri: message.attachment_uri }}
+              style={{ width: s(210), height: s(210), borderRadius: s(17), backgroundColor: "#E5E7EB" }}
+              resizeMode="cover"
+            />
+          )}
         </View>
       ) : (
         <Text style={{ color: "#111827", fontSize: clamp(s(15), 14, 17), lineHeight: clamp(s(21), 19, 23) }}>{message.content}</Text>
@@ -415,5 +497,5 @@ function summarizeContext(context: ShotContext): string[] {
 }
 
 function titleCase(value: string) {
-  return value.replaceAll("_", " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+  return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
