@@ -106,9 +106,9 @@ export default function SideDrawer() {
           height: "100%",
           width: DRAWER_WIDTH,
           transform: [{ translateX }],
-          backgroundColor: "#FAFAF8",
-          paddingTop: insets.top + s(12),
-          paddingHorizontal: s(16),
+          backgroundColor: "#FFFFFF",
+          paddingTop: insets.top + s(8),
+          paddingHorizontal: s(14),
           borderRightWidth: 1,
           borderRightColor: "rgba(0,0,0,0.06)",
         }}
@@ -116,7 +116,7 @@ export default function SideDrawer() {
         {/* Brand */}
         <View
           style={{
-            paddingBottom: s(16),
+            paddingBottom: s(12),
             borderBottomWidth: 1,
             borderBottomColor: "rgba(0,0,0,0.06)",
           }}
@@ -125,10 +125,10 @@ export default function SideDrawer() {
             <Image
               source={require("../assets/images/Logo.png")}
               style={{
-                width: s(44),
-                height: s(44),
+                width: s(40),
+                height: s(40),
                 resizeMode: "contain",
-                marginRight: s(10),
+                marginRight: s(9),
               }}
             />
 
@@ -136,7 +136,7 @@ export default function SideDrawer() {
               <Text
                 style={{
                   fontFamily: "Nunito_700Bold",
-                  fontSize: clamp(s(22), 18, 26),
+                  fontSize: clamp(s(21), 18, 24),
                   color: "#0B0B0F",
                 }}
               >
@@ -161,8 +161,8 @@ export default function SideDrawer() {
           <Pressable
             onPress={goToLastShot}
             style={({ pressed }) => ({
-              marginTop: s(16),
-              borderRadius: s(18),
+              marginTop: s(12),
+              borderRadius: s(16),
               overflow: "hidden",
               backgroundColor: "#0B0B0F",
               opacity: pressed ? 0.95 : 1,
@@ -172,7 +172,7 @@ export default function SideDrawer() {
               source={preferredMachine.image}
               style={{
                 width: "100%",
-                height: s(110),
+                height: s(96),
                 opacity: 0.72,
               }}
               resizeMode="cover"
@@ -181,10 +181,10 @@ export default function SideDrawer() {
             <View
               style={{
                 position: "absolute",
-                left: s(14),
-                right: s(14),
-                top: s(14),
-                bottom: s(14),
+                left: s(13),
+                right: s(13),
+                top: s(12),
+                bottom: s(12),
                 justifyContent: "space-between",
               }}
             >
@@ -204,7 +204,7 @@ export default function SideDrawer() {
                     marginTop: s(6),
                     color: "white",
                     fontFamily: "Nunito_700Bold",
-                    fontSize: clamp(s(18), 16, 22),
+                    fontSize: clamp(s(17), 15.5, 20),
                   }}
                   numberOfLines={1}
                 >
@@ -238,8 +238,8 @@ export default function SideDrawer() {
         {/* NAVIGATION */}
         <Text
           style={{
-            marginTop: s(18),
-            marginBottom: s(8),
+            marginTop: s(14),
+            marginBottom: s(5),
             fontSize: clamp(s(12), 11, 13),
             fontWeight: "800",
             color: "#6B7280",
@@ -262,6 +262,12 @@ export default function SideDrawer() {
         />
 
         <MenuItem
+          icon="options-outline"
+          label="Grinders"
+          onPress={() => go("/select-grinder")}
+        />
+
+        <MenuItem
           icon="cafe-outline"
           label="Brewing Guide"
           onPress={() => go("/brewing")}
@@ -276,8 +282,8 @@ export default function SideDrawer() {
         {/* TOOLS */}
         <Text
           style={{
-            marginTop: s(18),
-            marginBottom: s(8),
+            marginTop: s(12),
+            marginBottom: s(5),
             fontSize: clamp(s(12), 11, 13),
             fontWeight: "800",
             color: "#6B7280",
@@ -300,13 +306,13 @@ export default function SideDrawer() {
           style={{
             borderTopWidth: 1,
             borderTopColor: "rgba(0,0,0,0.06)",
-            paddingTop: s(10),
-            marginBottom: s(6),
+            paddingTop: s(8),
+            marginBottom: s(4),
           }}
         >
           <Text
             style={{
-              marginBottom: s(8),
+              marginBottom: s(5),
               fontSize: clamp(s(12), 11, 13),
               fontWeight: "800",
               color: "#6B7280",
@@ -332,8 +338,8 @@ export default function SideDrawer() {
         {/* Footer */}
         <View
           style={{
-            paddingTop: s(12),
-            paddingBottom: s(16),
+            paddingTop: s(9),
+            paddingBottom: s(12),
             borderTopWidth: 1,
             borderTopColor: "rgba(0,0,0,0.06)",
           }}
@@ -378,23 +384,23 @@ function MenuItem({
       style={({ pressed }) => ({
         flexDirection: "row",
         alignItems: "center",
-        paddingVertical: s(12),
-        paddingHorizontal: s(12),
-        borderRadius: s(14),
-        backgroundColor: pressed && !disabled ? "rgba(0,0,0,0.05)" : "transparent",
-        marginBottom: s(4),
+        paddingVertical: s(9),
+        paddingHorizontal: s(10),
+        borderRadius: s(12),
+        backgroundColor: pressed && !disabled ? "rgba(0,0,0,0.045)" : "transparent",
+        marginBottom: s(1),
         opacity: disabled ? 0.45 : 1,
       })}
     >
       <Ionicons
         name={icon}
-        size={20}
+        size={19}
         color="#111827"
         style={{ marginRight: s(10) }}
       />
       <Text
         style={{
-          fontSize: clamp(s(15.5), 14, 17),
+          fontSize: clamp(s(15), 14, 16.5),
           fontWeight: "600",
           color: "#0B0B0F",
         }}
