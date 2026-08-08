@@ -35,6 +35,8 @@ type LocalMessage = ChatMessage & {
 
 type AIShotChatProps = {
   machineName?: string | null;
+  grinderName?: string | null;
+  usesBuiltInGrinder?: boolean | null;
 };
 
 const INITIAL_MESSAGE: LocalMessage = {
@@ -43,11 +45,13 @@ const INITIAL_MESSAGE: LocalMessage = {
   content: "Hey, I can help dial in your espresso shot. What machine are you using?",
 };
 
-export default function AIShotChat({ machineName }: AIShotChatProps) {
+export default function AIShotChat({ machineName, grinderName, usesBuiltInGrinder }: AIShotChatProps) {
   const [messages, setMessages] = useState<LocalMessage[]>([INITIAL_MESSAGE]);
   const [shotContext, setShotContext] = useState<ShotContext>(() => ({
     user_id: "demo-user",
     machine: machineName || null,
+    grinder: usesBuiltInGrinder ? (machineName ? `${machineName} built-in grinder` : "built-in grinder") : grinderName || null,
+    uses_built_in_grinder: Boolean(usesBuiltInGrinder),
   }));
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -57,19 +61,38 @@ export default function AIShotChat({ machineName }: AIShotChatProps) {
   const scrollRef = useRef<ScrollView>(null);
 
   useEffect(() => {
-    if (!machineName) return;
-    setShotContext((current) => ({ ...current, machine: current.machine || machineName }));
+    if (!machineName && !grinderName && !usesBuiltInGrinder) return;
+
+    const selectedGrinder = usesBuiltInGrinder ? (machineName ? `${machineName} built-in grinder` : "built-in grinder") : grinderName || null;
+    setShotContext((current) => ({
+      ...current,
+      machine: current.machine || machineName || null,
+      grinder: current.grinder || selectedGrinder,
+      uses_built_in_grinder: current.uses_built_in_grinder || Boolean(usesBuiltInGrinder),
+    }));
     setMessages((current) => {
       if (current.length > 1) return current;
-      return [
-        {
-          id: "assistant-start-with-machine",
-          role: "assistant",
-          content: `I have ${machineName} selected. What grinder are you using? If it is built into the machine, say built-in.`,
-        },
-      ];
+      if (machineName && selectedGrinder) {
+        return [
+          {
+            id: "assistant-start-with-equipment",
+            role: "assistant",
+            content: `I have ${machineName} and ${usesBuiltInGrinder ? "its built-in grinder" : selectedGrinder} selected. What dose are you using in grams? If you do not know, say I don't know.`,
+          },
+        ];
+      }
+      if (machineName) {
+        return [
+          {
+            id: "assistant-start-with-machine",
+            role: "assistant",
+            content: `I have ${machineName} selected. What grinder are you using? If it is built into the machine, say built-in.`,
+          },
+        ];
+      }
+      return current;
     });
-  }, [machineName]);
+  }, [machineName, grinderName, usesBuiltInGrinder]);
 
   useEffect(() => {
     requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));

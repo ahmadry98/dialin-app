@@ -96,27 +96,63 @@ function InfoPill({
   return (
     <View
       style={{
+        width: "48%",
+        minHeight: s(42),
         flexDirection: "row",
         alignItems: "center",
         gap: s(8),
-        paddingVertical: s(10),
-        paddingHorizontal: s(12),
-        borderRadius: 999,
+        paddingVertical: s(9),
+        paddingHorizontal: s(11),
+        borderRadius: s(14),
         backgroundColor: "white",
         borderWidth: 1,
-        borderColor: "rgba(0,0,0,0.05)",
+        borderColor: "rgba(0,0,0,0.06)",
       }}
     >
-      <Ionicons name={icon} size={16} color="#111827" />
+      <Ionicons name={icon} size={15} color="#111827" />
       <Text
+        numberOfLines={1}
+        adjustsFontSizeToFit
+        minimumFontScale={0.82}
         style={{
-          fontSize: clamp(s(13), 12, 14),
-          fontWeight: "700",
+          flex: 1,
+          fontSize: clamp(s(12.5), 11.5, 13.5),
+          fontWeight: "800",
           color: "#374151",
         }}
       >
         {label}
       </Text>
+    </View>
+  );
+}
+
+function MachineImagePlaceholder({ height }: { height: number }) {
+  return (
+    <View
+      style={{
+        width: "100%",
+        height,
+        backgroundColor: "#F0F1F4",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <View
+        style={{
+          width: s(64),
+          height: s(64),
+          borderRadius: 999,
+          backgroundColor: "white",
+          borderWidth: 1,
+          borderColor: "#E1E4EA",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Ionicons name="cafe-outline" size={30} color="#6B7280" />
+      </View>
+      <Text style={{ marginTop: s(10), color: "#6B7280", fontWeight: "800" }}>Image coming soon</Text>
     </View>
   );
 }
@@ -219,18 +255,10 @@ export default function MachineHub() {
   }
 
   const pillData = [
-    machine.machine_type
-      ? { icon: "cafe-outline" as const, label: machine.machine_type }
-      : null,
-    machine.boiler_type
-      ? { icon: "flame-outline" as const, label: machine.boiler_type }
-      : null,
-    machine.beginner_friendly
-      ? { icon: "happy-outline" as const, label: "Beginner friendly" }
-      : null,
-    machine.grinder_recommendation
-      ? { icon: "options-outline" as const, label: "Grinder needed" }
-      : null,
+    machine.machine_type ? { icon: "cafe-outline" as const, label: machine.machine_type } : null,
+    machine.portafilter_mm ? { icon: "filter-outline" as const, label: `${machine.portafilter_mm}mm` } : null,
+    machine.boiler_type ? { icon: "flame-outline" as const, label: machine.boiler_type } : null,
+    machine.grinder_recommendation ? { icon: "options-outline" as const, label: machine.grinder_recommendation } : null,
   ].filter(Boolean) as { icon: React.ComponentProps<typeof Ionicons>["name"]; label: string }[];
 
   return (
@@ -256,21 +284,11 @@ export default function MachineHub() {
         {machine.image ? (
           <Image
             source={{ uri: machine.image }}
-            style={{ width: "100%", height: clamp(v(240), 180, 300) }}
+            style={{ width: "100%", height: s(190), backgroundColor: "#F4F2EE" }}
             resizeMode="cover"
           />
         ) : (
-          <View
-            style={{
-              width: "100%",
-              height: clamp(v(240), 180, 300),
-              backgroundColor: "#E5E7EB",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-          >
-            <Text style={{ color: "#6B7280" }}>No image</Text>
-          </View>
+          <MachineImagePlaceholder height={s(190)} />
         )}
 
         <View style={{ padding: s(16) }}>
@@ -301,7 +319,8 @@ export default function MachineHub() {
             style={{
               flexDirection: "row",
               flexWrap: "wrap",
-              gap: s(10),
+              columnGap: s(10),
+              rowGap: s(10),
               marginTop: s(14),
             }}
           >
@@ -311,6 +330,31 @@ export default function MachineHub() {
           </View>
         </View>
       </View>
+
+      {!!machine.description && (
+        <View
+          style={{
+            marginTop: s(14),
+            borderRadius: s(18),
+            padding: s(14),
+            backgroundColor: "white",
+            borderWidth: 1,
+            borderColor: "rgba(0,0,0,0.05)",
+            ...shadowCard(),
+          }}
+        >
+          <Text
+            style={{
+              fontSize: clamp(s(13.5), 12.5, 15),
+              lineHeight: clamp(s(19), 17, 21),
+              color: "#4B5563",
+            }}
+            numberOfLines={3}
+          >
+            {machine.description}
+          </Text>
+        </View>
+      )}
 
       <Pressable
         onPress={async () => {
@@ -342,32 +386,6 @@ export default function MachineHub() {
           {isPreferred ? "✓ My machine" : "⭐ Set as my machine"}
         </Text>
       </Pressable>
-        {!!machine.description && (
-  <View
-    style={{
-      marginTop: s(14),
-      borderRadius: s(18),
-      padding: s(14),
-      backgroundColor: "white",
-      borderWidth: 1,
-      borderColor: "rgba(0,0,0,0.05)",
-      ...shadowCard(),
-    }}
-  >
-
-    <Text
-      style={{
-        marginTop: s(8),
-        fontSize: clamp(s(13.5), 12.5, 15),
-        lineHeight: clamp(s(19), 17, 21),
-        color: "#4B5563",
-      }}
-      numberOfLines={4}
-    >
-      {machine.description}
-    </Text>
-  </View>
-)}
       <Text
         style={{
           marginTop: s(20),

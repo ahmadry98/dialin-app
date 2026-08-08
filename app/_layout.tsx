@@ -30,6 +30,7 @@ export default function RootLayout() {
             <Stack screenOptions={{ headerShown: false }}>
               <Stack.Screen name="index" />
               <Stack.Screen name="select-machine" />
+              <Stack.Screen name="select-grinder" />
               <Stack.Screen name="ai" />
               <Stack.Screen name="machine/[slug]" />
               <Stack.Screen name="brewing" />

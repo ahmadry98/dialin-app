@@ -24,16 +24,6 @@ function shadowCard() {
   } as const;
 }
 
-function getMachineTags(name: string) {
-  const n = name.toLowerCase();
-
-  if (n.includes("gaggia")) return ["Beginner-friendly", "Classic"];
-  if (n.includes("silvia")) return ["Powerful", "Single boiler"];
-  if (n.includes("breville")) return ["Built-in grinder", "All-in-one"];
-
-  return ["Espresso", "Manual"];
-}
-
 function Tag({ label }: { label: string }) {
   return (
     <View
@@ -53,6 +43,36 @@ function Tag({ label }: { label: string }) {
       >
         {label}
       </Text>
+    </View>
+  );
+}
+
+function MachineImagePlaceholder({ height }: { height: number }) {
+  return (
+    <View
+      style={{
+        width: "100%",
+        height,
+        backgroundColor: "#F0F1F4",
+        alignItems: "center",
+        justifyContent: "center",
+      }}
+    >
+      <View
+        style={{
+          width: s(54),
+          height: s(54),
+          borderRadius: 999,
+          backgroundColor: "white",
+          borderWidth: 1,
+          borderColor: "#E1E4EA",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Ionicons name="cafe-outline" size={26} color="#6B7280" />
+      </View>
+      <Text style={{ marginTop: s(8), color: "#6B7280", fontWeight: "800" }}>Image coming soon</Text>
     </View>
   );
 }
@@ -80,12 +100,8 @@ export default function SelectMachine() {
     if (!q) return machines;
 
     return machines.filter((m) => {
-      const tags = getMachineTags(m.name).join(" ").toLowerCase();
-      return (
-        m.name.toLowerCase().includes(q) ||
-        m.subtitle.toLowerCase().includes(q) ||
-        tags.includes(q)
-      );
+      const tags = (m.tags || []).join(" ").toLowerCase();
+      return m.name.toLowerCase().includes(q) || m.subtitle.toLowerCase().includes(q) || tags.includes(q);
     });
   }, [query, machines]);
 
@@ -216,7 +232,7 @@ export default function SelectMachine() {
           </View>
         }
         renderItem={({ item }) => {
-          const tags = getMachineTags(item.name);
+          const tags = item.tags?.length ? item.tags : [item.subtitle];
 
           return (
             <Pressable
@@ -237,22 +253,13 @@ export default function SelectMachine() {
                   source={{ uri: item.image }}
                   style={{
                     width: "100%",
-                    height: clamp(v(165), 130, 200),
+                    height: clamp(v(150), 120, 170),
+                    backgroundColor: "#F4F2EE",
                   }}
                   resizeMode="cover"
                 />
               ) : (
-                <View
-                  style={{
-                    width: "100%",
-                    height: clamp(v(165), 130, 200),
-                    backgroundColor: "#E5E7EB",
-                    alignItems: "center",
-                    justifyContent: "center",
-                  }}
-                >
-                  <Text style={{ color: "#6B7280" }}>No image</Text>
-                </View>
+                <MachineImagePlaceholder height={clamp(v(150), 120, 170)} />
               )}
 
               <View style={{ padding: s(14) }}>
