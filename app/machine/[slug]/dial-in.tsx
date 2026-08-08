@@ -5,7 +5,6 @@ import {
   TextInput,
   Pressable,
   ScrollView,
-  Image,
   ActivityIndicator,
 } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
@@ -82,7 +81,7 @@ function Segmented({
   value: Roast;
   onChange: (r: Roast) => void;
 }) {
-  const items: Array<{ key: Roast; label: string; icon: string }> = [
+  const items: { key: Roast; label: string; icon: string }[] = [
     { key: "light", label: "Light", icon: "🌱" },
     { key: "medium", label: "Medium", icon: "☕" },
     { key: "dark", label: "Dark", icon: "🔥" },
@@ -193,9 +192,18 @@ export default function DialIn() {
     })();
   }, [slug]);
 
-  const targetMin = roast === "light" ? 28 : roast === "dark" ? 24 : 26;
-  const targetMax = roast === "light" ? 32 : roast === "dark" ? 28 : 30;
+  const profileTarget = machine?.target_total_shot_seconds && machine.target_total_shot_seconds.length >= 2
+    ? machine.target_total_shot_seconds
+    : [25, 32];
+  const roastShift = roast === "light" ? 2 : roast === "dark" ? -2 : 0;
+  const targetMin = Math.max(18, Math.round((profileTarget[0] ?? 25) + roastShift));
+  const targetMax = Math.max(targetMin + 2, Math.round((profileTarget[1] ?? 32) + roastShift));
   const targetSeconds = `${targetMin}–${targetMax}`;
+  const machineFacts = [
+    machine?.portafilter_mm ? `${machine.portafilter_mm}mm basket` : null,
+    machine?.has_built_in_grinder ? "built-in grinder" : "external grinder",
+    machine?.has_preinfusion ? "pre-infusion" : null,
+  ].filter(Boolean).join(" · ");
 
   const timeNum = parseNum(timeSec);
 
@@ -209,15 +217,15 @@ export default function DialIn() {
   const advice = useMemo(() => {
     const roastHint =
       roast === "light"
-        ? "Light roasts usually need a bit more contact time."
+        ? "Light roast target is shifted slightly longer for this machine."
         : roast === "dark"
-        ? "Dark roasts often run better a bit faster."
-        : "Medium roasts are a strong baseline.";
+        ? "Dark roast target is shifted slightly shorter for this machine."
+        : "This uses the machine profile target as the baseline.";
 
     if (verdict === "EMPTY") {
       return {
         title: "Enter shot time",
-        body: `Aim for ${targetSeconds}s. ${roastHint}`,
+        body: `Aim for ${targetSeconds}s on this machine.`,
         tip: "",
       };
     }
@@ -362,6 +370,18 @@ export default function DialIn() {
         {machine.name}
       </Text>
 
+      {machineFacts ? (
+        <Text
+          style={{
+            marginTop: s(6),
+            color: "#6B7280",
+            fontSize: clamp(s(13), 12, 14.5),
+          }}
+        >
+          {machineFacts}
+        </Text>
+      ) : null}
+
       <View
         style={{
           marginTop: s(14),
@@ -390,7 +410,7 @@ export default function DialIn() {
             fontSize: clamp(s(13), 12, 14.5),
           }}
         >
-          Pick the roast level and compare your shot time.
+          Pick the roast and compare against this machine profile.
         </Text>
 
         <View style={{ marginTop: s(12) }}>
@@ -429,10 +449,24 @@ export default function DialIn() {
         </Text>
 
         <View style={{ flexDirection: "row", gap: s(10), marginTop: s(12) }}>
-          <MiniStat label="Target time" value={`${targetSeconds}s`} />
+          <MiniStat label="Target" value={`${targetSeconds}s`} />
           <MiniStat label="Dose" value={`${machine.baseline_dose}g`} />
           <MiniStat label="Yield" value={`${machine.baseline_yield}g`} />
         </View>
+
+        {machine.quick_tip ? (
+          <Text
+            style={{
+              marginTop: s(10),
+              color: "#6B7280",
+              fontSize: clamp(s(12.5), 12, 14),
+              lineHeight: clamp(s(18), 16, 20),
+            }}
+            numberOfLines={2}
+          >
+            {machine.quick_tip}
+          </Text>
+        ) : null}
       </View>
 
       <Text
