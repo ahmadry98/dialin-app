@@ -338,8 +338,8 @@ export default function SideDrawer() {
         {/* Footer */}
         <View
           style={{
-            paddingTop: s(9),
-            paddingBottom: s(12),
+            paddingTop: s(12),
+            paddingBottom: s(28),
             borderTopWidth: 1,
             borderTopColor: "rgba(0,0,0,0.06)",
           }}
@@ -354,7 +354,7 @@ export default function SideDrawer() {
           </Text>
           <Text
             style={{
-              marginTop: s(4),
+              marginTop: s(7),
               fontSize: clamp(s(11.5), 11, 12.5),
               color: "#9CA3AF",
             }}

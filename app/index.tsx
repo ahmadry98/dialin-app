@@ -538,7 +538,7 @@ const machineOfTheDay = useMemo(() => {
         })}
       >
         <Image
-          source={require("../assets/images/home/brewing-guide.jpg")}
+          source={require("../assets/images/home/newadded.jpg")}
           style={{ width: "100%", height: clamp(v(190), 150, 230), opacity: 0.92 }}
           resizeMode="cover"
         />
