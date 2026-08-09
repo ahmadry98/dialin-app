@@ -110,15 +110,24 @@ export async function fetchMachine(slug: string): Promise<Machine> {
 }
 
 export async function fetchGrinders(): Promise<Grinder[]> {
-  const response = await fetch(`${API_BASE_URL}/grinders`);
+  try {
+    const response = await fetch(`${API_BASE_URL}/grinders`);
 
-  if (!response.ok) {
-    throw new Error(`Failed to fetch grinders: ${response.status}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch grinders: ${response.status}`);
+    }
+
+    const payload = await response.json();
+    const grinders = Array.isArray(payload) ? payload : payload.grinders || [];
+    return sortGrinders(grinders.map(normalizeProfileGrinder));
+  } catch (error) {
+    console.log("Using local grinder fallback:", error);
+    return LOCAL_GRINDERS;
   }
+}
 
-  const payload = await response.json();
-  const grinders = Array.isArray(payload) ? payload : payload.grinders || [];
-  return grinders.map((grinder: any) => ({
+function normalizeProfileGrinder(grinder: any): Grinder {
+  return {
     slug: grinder.slug,
     name: grinder.display_name || grinder.name,
     tags: grinder.tags || [],
@@ -132,8 +141,120 @@ export async function fetchGrinders(): Promise<Grinder[]> {
     medium_step: grinder.medium_step,
     large_step: grinder.large_step,
     notes: grinder.notes,
-  }));
+  };
 }
+
+function sortGrinders(grinders: Grinder[]): Grinder[] {
+  return [...grinders].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+const LOCAL_GRINDERS: Grinder[] = sortGrinders([
+  {
+    slug: "baratza-encore-esp",
+    name: "Baratza Encore ESP",
+    tags: ["Stepped", "Espresso 1-18", "Data B"],
+    setting_type: "numeric_integer",
+    lower_is_finer: true,
+    min_setting: 1,
+    max_setting: 40,
+    espresso_range: [1, 18],
+    data_confidence: "B",
+    small_step: 1,
+    medium_step: 2,
+    large_step: 4,
+    notes: "Use whole-number steps; lower settings are finer.",
+  },
+  {
+    slug: "breville-smart-grinder-pro",
+    name: "Breville Smart Grinder Pro",
+    tags: ["Stepped", "Espresso 3-15", "Data B"],
+    setting_type: "numeric_integer",
+    lower_is_finer: true,
+    min_setting: 1,
+    max_setting: 60,
+    espresso_range: [3, 15],
+    data_confidence: "B",
+    small_step: 1,
+    medium_step: 2,
+    large_step: 4,
+    notes: "Use small setting moves and keep dose stable while dialing in.",
+  },
+  {
+    slug: "eureka-mignon-specialita",
+    name: "Eureka Mignon Specialita",
+    tags: ["Numeric", "Espresso 0.5-3.5", "Data C"],
+    setting_type: "numeric_decimal",
+    lower_is_finer: true,
+    min_setting: 0,
+    max_setting: 20,
+    espresso_range: [0.5, 3.5],
+    data_confidence: "C",
+    small_step: 0.1,
+    medium_step: 0.3,
+    large_step: 0.6,
+    notes: "Small dial changes can be meaningful; move gradually.",
+  },
+  {
+    slug: "niche-zero",
+    name: "Niche Zero",
+    tags: ["Numeric", "Espresso 10-20", "Data A"],
+    setting_type: "numeric_decimal",
+    lower_is_finer: true,
+    min_setting: 0,
+    max_setting: 50,
+    espresso_range: [10, 20],
+    data_confidence: "A",
+    small_step: 1,
+    medium_step: 2,
+    large_step: 4,
+    notes: "Use small number moves; lower is finer.",
+  },
+  {
+    slug: "turin-df54",
+    name: "Turin DF54",
+    tags: ["Numeric", "Espresso 10-20", "Data C"],
+    setting_type: "numeric_decimal",
+    lower_is_finer: true,
+    min_setting: 0,
+    max_setting: 90,
+    espresso_range: [10, 20],
+    data_confidence: "C",
+    small_step: 1,
+    medium_step: 2,
+    large_step: 4,
+    notes: "Use numeric moves as relative guidance, then refine by shot time.",
+  },
+  {
+    slug: "varia-vs3",
+    name: "Varia VS3",
+    tags: ["Numeric", "Espresso 3-5", "Data B"],
+    setting_type: "numeric_decimal",
+    lower_is_finer: true,
+    min_setting: 0,
+    max_setting: 12,
+    espresso_range: [3, 5],
+    data_confidence: "B",
+    small_step: 0.1,
+    medium_step: 0.3,
+    large_step: 0.6,
+    notes: "Use tenths for fine espresso adjustment.",
+  },
+  {
+    slug: "varia-vs6",
+    name: "Varia VS6",
+    tags: ["Numeric", "Espresso 0.8-2.5", "Data C"],
+    setting_type: "numeric_decimal",
+    lower_is_finer: true,
+    min_setting: 0,
+    max_setting: 6,
+    espresso_range: [0.8, 2.5],
+    data_confidence: "C",
+    small_step: 0.1,
+    medium_step: 0.3,
+    large_step: 0.6,
+    notes: "Use tenths for small espresso moves.",
+  },
+]);
 
 
 function normalizeProfileMachine(profile: EquipmentProfileMachine): Machine {
@@ -211,19 +332,39 @@ function titleCase(value: string) {
 
 const LOCAL_PROFILE_IMAGES: Record<string, LocalMachine["image"]> = {
   "machine-breville-barista-express": require("../assets/images/machines/breville.jpg"),
+  "machine-breville-bambino-bambino-plus": require("../assets/images/machines/images.jpeg"),
   "machine-gaggia-classic-pro": require("../assets/images/machines/gaggia.jpg"),
   "machine-rancilio-silvia": require("../assets/images/machines/rancilio.jpg"),
+  "machine-delonghi-dedica": require("../assets/images/machines/images-2.jpeg"),
+  "machine-lelit-anna": require("../assets/images/machines/Lelit-Anna-Feature.jpg"),
+  "machine-la-marzocco-linea-micra": require("../assets/images/machines/WEB_LPMCBS02EU_S01_1800x1800.jpg"),
+  "machine-breville-dual-boiler": require("../assets/images/machines/Breville-Oracle-Dual-Boiler-Feature.jpg"),
+  "machine-profitec-go": require("../assets/images/machines/Profitec-Go-On-Bar-3.jpg"),
+  "machine-profitec-pro-400": require("../assets/images/machines/pro-400-slider-webcopy.jpg"),
+  "machine-profitec-pro-300": require("../assets/images/machines/Profitec_PRO300_Lifestyle_1_1024x1024.png.webp"),
+  "machine-profitec-pro-500-pid": require("../assets/images/machines/Eureka-Mignon-Libra-Espresso-Grinder-Profitec-Pro-500-Machine-Clive-Coffee-02.jpg"),
+  "machine-lelit-mara-x": require("../assets/images/machines/masch-lel-mars3-2-51156.jpg.webp"),
+  "machine-lelit-bianca-v3": require("../assets/images/machines/DNA-Bianca.jpg.webp"),
+  "machine-rocket-appartamento": require("../assets/images/machines/rocket-appartamento-overview.jpg"),
+  "machine-rocket-r58-cinquantotto": require("../assets/images/machines/la_marzocco_linea_mini_r_vs_rocket_r58_tune.png"),
+  "machine-ascaso-steel-uno-pid-duo-pid": require("../assets/images/machines/IMG_7770-1024x768.jpg"),
+  "machine-lelit-anita-pl042temd": require("../assets/images/machines/lelit_anita_buy_online.jpg"),
+  "machine-breville-barista-touch-impress-espresso-machine": require("../assets/images/machines/sea-product-breville-barista-touch-impress-espresso-machine-nsimpson-3370-f33afaef93bf49439a2d15ee416114bf.jpeg"),
+  "machine-la-pavoni-new-casa-bar": require("../assets/images/machines/s-l1200.jpg"),
+  "machine-lelit-elizabeth-pl92t": require("../assets/images/machines/V8mr4URJbKsiyj5xBDus9c-1200-80.jpg.webp"),
+  "machine-lelit-victoria-pl91t": require("../assets/images/machines/Victoria-on-Counter-4.jpg"),
 };
 
 function profileImageUri(profile: EquipmentProfileMachine): string | null {
   if (profile.image_url) return profile.image_url;
   if (profile.image?.url) return profile.image.url;
 
-  const assetKey = profile.image?.local_asset_key;
-  if (!assetKey) return null;
-
-  const source = LOCAL_PROFILE_IMAGES[assetKey];
-  return source ? localImageUri(source) : null;
+  const candidates = [profile.image?.local_asset_key, profile.slug ? `machine-${profile.slug}` : null].filter(Boolean) as string[];
+  for (const key of candidates) {
+    const source = LOCAL_PROFILE_IMAGES[key];
+    if (source) return localImageUri(source);
+  }
+  return null;
 }
 
 function localMachines(): Machine[] {

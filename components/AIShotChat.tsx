@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -13,6 +13,7 @@ import {
   View,
 } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 
 import { clamp, s } from "../utils/ui";
@@ -37,15 +38,28 @@ type AIShotChatProps = {
   machineName?: string | null;
   grinderName?: string | null;
   usesBuiltInGrinder?: boolean | null;
+  chatSessionKey?: string;
 };
+
+export type AIShotChatHandle = {
+  reset: () => void;
+};
+
+type StoredChatSession = {
+  messages: LocalMessage[];
+  shotContext: ShotContext;
+  analysis: AnalyzeShotResponse | null;
+};
+
+const CHAT_STORAGE_PREFIX = "dialchat-session";
 
 const INITIAL_MESSAGE: LocalMessage = {
   id: "assistant-start",
   role: "assistant",
-  content: "Hey, I can help dial in your espresso shot. What machine are you using?",
+  content: "Let’s dial in your shot. What machine are you using?",
 };
 
-export default function AIShotChat({ machineName, grinderName, usesBuiltInGrinder }: AIShotChatProps) {
+function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionKey = "default" }: AIShotChatProps, ref: React.Ref<AIShotChatHandle>) {
   const [messages, setMessages] = useState<LocalMessage[]>([INITIAL_MESSAGE]);
   const [shotContext, setShotContext] = useState<ShotContext>(() => ({
     user_id: "demo-user",
@@ -58,10 +72,52 @@ export default function AIShotChat({ machineName, grinderName, usesBuiltInGrinde
   const [error, setError] = useState<string | null>(null);
   const [analysis, setAnalysis] = useState<AnalyzeShotResponse | null>(null);
   const [analysisOpen, setAnalysisOpen] = useState(false);
+  const [activityLabel, setActivityLabel] = useState("DialChat is thinking");
+  const [hasLoadedSession, setHasLoadedSession] = useState(false);
   const scrollRef = useRef<ScrollView>(null);
+  const hasLoadedSessionRef = useRef(false);
+  const isRestoringSessionRef = useRef(false);
+  const storageKey = `${CHAT_STORAGE_PREFIX}:${chatSessionKey}`;
 
   useEffect(() => {
-    if (!machineName && !grinderName && !usesBuiltInGrinder) return;
+    let isMounted = true;
+    hasLoadedSessionRef.current = false;
+    isRestoringSessionRef.current = true;
+    setHasLoadedSession(false);
+
+    (async () => {
+      try {
+        const raw = await AsyncStorage.getItem(storageKey);
+        if (!raw || !isMounted) return;
+
+        const stored = JSON.parse(raw) as Partial<StoredChatSession>;
+        if (Array.isArray(stored.messages) && stored.messages.length > 0) {
+          setMessages(stored.messages);
+        }
+        if (stored.shotContext && typeof stored.shotContext === "object") {
+          setShotContext((current) => ({ ...current, ...stored.shotContext }));
+        }
+        if (stored.analysis) {
+          setAnalysis(stored.analysis);
+        }
+      } catch (loadError) {
+        console.log("Failed to restore DialChat session:", loadError);
+      } finally {
+        if (isMounted) {
+          hasLoadedSessionRef.current = true;
+          isRestoringSessionRef.current = false;
+          setHasLoadedSession(true);
+        }
+      }
+    })();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (!hasLoadedSession || !machineName && !grinderName && !usesBuiltInGrinder) return;
 
     const selectedGrinder = usesBuiltInGrinder ? (machineName ? `${machineName} built-in grinder` : "built-in grinder") : grinderName || null;
     setShotContext((current) => ({
@@ -71,32 +127,27 @@ export default function AIShotChat({ machineName, grinderName, usesBuiltInGrinde
       uses_built_in_grinder: current.uses_built_in_grinder || Boolean(usesBuiltInGrinder),
     }));
     setMessages((current) => {
-      if (current.length > 1) return current;
-      if (machineName && selectedGrinder) {
-        return [
-          {
-            id: "assistant-start-with-equipment",
-            role: "assistant",
-            content: `I have ${machineName} and ${usesBuiltInGrinder ? "its built-in grinder" : selectedGrinder} selected. What dose are you using in grams? If you do not know, say I don't know.`,
-          },
-        ];
-      }
-      if (machineName) {
-        return [
-          {
-            id: "assistant-start-with-machine",
-            role: "assistant",
-            content: `I have ${machineName} selected. What grinder are you using? If it is built into the machine, say built-in.`,
-          },
-        ];
-      }
-      return current;
+      if (current.length > 1 || current[0]?.id !== INITIAL_MESSAGE.id) return current;
+      return initialMessagesForSetup(machineName, grinderName, usesBuiltInGrinder);
     });
-  }, [machineName, grinderName, usesBuiltInGrinder]);
+  }, [hasLoadedSession, machineName, grinderName, usesBuiltInGrinder]);
 
   useEffect(() => {
     requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
   }, [messages, isSending]);
+
+  useEffect(() => {
+    if (!hasLoadedSession || isRestoringSessionRef.current) return;
+
+    const session: StoredChatSession = {
+      messages: messages.map(stripMessageForStorage),
+      shotContext,
+      analysis,
+    };
+    AsyncStorage.setItem(storageKey, JSON.stringify(session)).catch((saveError) => {
+      console.log("Failed to save DialChat session:", saveError);
+    });
+  }, [analysis, hasLoadedSession, messages, shotContext, storageKey]);
 
   const visibleAnalysis = analysis ?? null;
   const canSend = input.trim().length > 0 && !isSending;
@@ -109,10 +160,34 @@ export default function AIShotChat({ machineName, grinderName, usesBuiltInGrinde
     await sendMessage({ id: `${Date.now()}-user`, role: "user", content: text });
   }
 
+  async function resetChatSession() {
+    if (isSending) return;
+    const initialContext: ShotContext = {
+      user_id: "demo-user",
+      machine: machineName || null,
+      grinder: usesBuiltInGrinder ? (machineName ? `${machineName} built-in grinder` : "built-in grinder") : grinderName || null,
+      uses_built_in_grinder: Boolean(usesBuiltInGrinder),
+    };
+    const initialMessages = initialMessagesForSetup(machineName, grinderName, usesBuiltInGrinder);
+    setMessages(initialMessages);
+    setShotContext(initialContext);
+    setAnalysis(null);
+    setAnalysisOpen(false);
+    setError(null);
+    await AsyncStorage.removeItem(storageKey);
+  }
+
+  useImperativeHandle(ref, () => ({
+    reset: () => {
+      void resetChatSession();
+    },
+  }));
+
   async function sendMessage(userMessage: LocalMessage, contextOverride?: ShotContext) {
     if (isSending) return;
 
     setError(null);
+    setActivityLabel(activityLabelFor(userMessage));
     const nextMessages = [...messages, userMessage];
     const contextForRequest = contextOverride ?? shotContext;
     setMessages(nextMessages);
@@ -143,7 +218,7 @@ export default function AIShotChat({ machineName, grinderName, usesBuiltInGrinde
       }
     } catch (submitError) {
       const message = submitError instanceof Error ? submitError.message : "Could not reach DialChat.";
-      setError(message);
+      setError(cleanErrorMessage(message));
     } finally {
       setIsSending(false);
     }
@@ -197,6 +272,7 @@ export default function AIShotChat({ machineName, grinderName, usesBuiltInGrinde
     const contentType = asset.mimeType || (filename.toLowerCase().endsWith(".mov") ? "video/quicktime" : "video/mp4");
 
     setError(null);
+    setActivityLabel("Uploading video...");
     setIsSending(true);
     try {
       const target = await createMediaUploadUrl({
@@ -233,13 +309,11 @@ export default function AIShotChat({ machineName, grinderName, usesBuiltInGrinde
       );
     } catch (uploadError) {
       const message = uploadError instanceof Error ? uploadError.message : "Could not upload the shot video.";
-      setError(message);
+      setError(cleanErrorMessage(message));
       setIsSending(false);
     }
   }
 
-
-  const contextSummary = useMemo(() => summarizeContext(shotContext), [shotContext]);
 
   return (
     <KeyboardAvoidingView
@@ -259,25 +333,19 @@ export default function AIShotChat({ machineName, grinderName, usesBuiltInGrinde
           {isSending ? (
             <View style={{ alignSelf: "flex-start", flexDirection: "row", alignItems: "center", gap: s(8), padding: s(12) }}>
               <ActivityIndicator size="small" color="#111827" />
-              <Text style={{ color: "#6B7280", fontWeight: "700" }}>DialChat is thinking</Text>
+              <Text style={{ color: "#6B7280", fontWeight: "700" }}>{activityLabel}</Text>
             </View>
           ) : null}
 
           {error ? (
             <View style={{ borderRadius: s(16), borderWidth: 1, borderColor: "#F2B8B5", backgroundColor: "#FFF1F0", padding: s(12) }}>
-              <Text style={{ color: "#A33A33", fontWeight: "800" }}>Load failed</Text>
+              <Text style={{ color: "#A33A33", fontWeight: "800" }}>Something went wrong</Text>
               <Text style={{ marginTop: s(4), color: "#A33A33" }}>{error}</Text>
             </View>
           ) : null}
         </ScrollView>
 
         <View style={{ borderTopWidth: 1, borderTopColor: "#E5E7EB", padding: s(12), backgroundColor: "white" }}>
-          {contextSummary.length ? (
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: s(8), paddingBottom: s(10) }}>
-              {contextSummary.map((item) => <ContextPill key={item} label={item} />)}
-            </ScrollView>
-          ) : null}
-
           {visibleAnalysis ? (
             <Pressable
               onPress={() => setAnalysisOpen(true)}
@@ -364,6 +432,31 @@ export default function AIShotChat({ machineName, grinderName, usesBuiltInGrinde
   );
 }
 
+export default forwardRef(AIShotChat);
+
+function initialMessagesForSetup(machineName?: string | null, grinderName?: string | null, usesBuiltInGrinder?: boolean | null): LocalMessage[] {
+  const selectedGrinder = usesBuiltInGrinder ? (machineName ? `${machineName} built-in grinder` : "built-in grinder") : grinderName || null;
+  if (machineName && selectedGrinder) {
+    return [
+      {
+        id: "assistant-start-with-equipment",
+        role: "assistant",
+        content: `I have ${machineName} and ${usesBuiltInGrinder ? "its built-in grinder" : selectedGrinder} selected. What grind setting are you using?`,
+      },
+    ];
+  }
+  if (machineName) {
+    return [
+      {
+        id: "assistant-start-with-machine",
+        role: "assistant",
+        content: `I have ${machineName} selected. What grinder are you using? If it is built into the machine, say built-in.`,
+      },
+    ];
+  }
+  return [INITIAL_MESSAGE];
+}
+
 function inferPhotoKind(context: ShotContext): "machine" | "grinder" {
   if (!context.machine || context.pending_gear_type === "machine") return "machine";
   if (!context.uses_built_in_grinder && (!context.grinder || context.pending_gear_type === "grinder")) return "grinder";
@@ -374,6 +467,18 @@ function isVideoAsset(asset: ImagePicker.ImagePickerAsset): boolean {
   const mime = asset.mimeType?.toLowerCase() || "";
   const uri = asset.uri.toLowerCase();
   return mime.startsWith("video/") || /\.(mov|mp4|m4v)$/i.test(uri);
+}
+
+function activityLabelFor(message: LocalMessage): string {
+  if (message.attachment_type === "video") return "Analyzing shot audio...";
+  if (message.attachment_type === "image" || message.image_base64) return "Reading the photo...";
+  return "DialChat is thinking";
+}
+
+function cleanErrorMessage(message: string): string {
+  if (/network request failed/i.test(message)) return "Could not reach DialChat. Check that the backend is running and your phone can access it.";
+  if (/internal server error/i.test(message)) return "DialChat hit a server error. Try again, or send a shorter video.";
+  return message;
 }
 
 
@@ -424,25 +529,21 @@ function Bubble({ message }: { message: LocalMessage }) {
   );
 }
 
-function ContextPill({ label }: { label: string }) {
-  return (
-    <View style={{ borderRadius: 999, backgroundColor: "#F1F2F4", borderWidth: 1, borderColor: "#E1E4EA", paddingVertical: s(7), paddingHorizontal: s(10) }}>
-      <Text style={{ color: "#4B5563", fontWeight: "800", fontSize: clamp(s(12), 11, 13) }}>{label}</Text>
-    </View>
-  );
-}
-
 function AnalysisModal({ analysis, visible, onClose }: { analysis: AnalyzeShotResponse | null; visible: boolean; onClose: () => void }) {
   if (!analysis) return null;
   const recommendation = analysis.recommendation;
   const timing = analysis.timing;
+  const timingConfidence = Math.min(timing.start_confidence ?? 1, timing.stop_confidence ?? 1);
+  const needsTimingConfirmation = recommendation.recommendation === "confirm_timing" || Boolean(timing.requires_manual_confirmation) || timingConfidence < 0.7;
   return (
     <Modal animationType="slide" visible={visible} presentationStyle="pageSheet" onRequestClose={onClose}>
       <View style={{ flex: 1, backgroundColor: "#F7F7F8", padding: s(18) }}>
         <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: s(14) }}>
           <View>
             <Text style={{ fontFamily: "Nunito_700Bold", fontSize: clamp(s(24), 21, 28), color: "#111827" }}>Shot Analysis</Text>
-            <Text style={{ color: "#6B7280", marginTop: s(2) }}>{recommendation.confidence} confidence</Text>
+            <Text style={{ color: "#6B7280", marginTop: s(2) }}>
+              {needsTimingConfirmation ? "Timing needs confirmation" : `${recommendation.confidence} confidence`}
+            </Text>
           </View>
           <Pressable onPress={onClose} style={{ width: s(42), height: s(42), borderRadius: 999, backgroundColor: "white", alignItems: "center", justifyContent: "center" }}>
             <Ionicons name="close" size={22} color="#111827" />
@@ -454,15 +555,23 @@ function AnalysisModal({ analysis, visible, onClose }: { analysis: AnalyzeShotRe
             <MetricRow label="Total" value={timing.total_shot_seconds == null ? "unknown" : `${timing.total_shot_seconds}s`} />
             <MetricRow label="Start" value={timing.machine_start_time == null ? "manual" : `${timing.machine_start_time}s`} />
             <MetricRow label="Stop" value={timing.machine_stop_time == null ? "manual" : `${timing.machine_stop_time}s`} />
+            <MetricRow label="Confidence" value={`${Math.round(timingConfidence * 100)}%`} />
           </InfoCard>
 
-          <InfoCard title="Recommendation">
-            <Text style={{ fontFamily: "Nunito_700Bold", fontSize: clamp(s(26), 22, 30), color: "#111827" }}>{titleCase(recommendation.recommendation)}</Text>
+          <InfoCard title={needsTimingConfirmation ? "Timing check" : "Recommendation"}>
+            <Text style={{ fontFamily: "Nunito_700Bold", fontSize: clamp(s(26), 22, 30), color: "#111827" }}>
+              {needsTimingConfirmation ? "Confirm Timing" : titleCase(recommendation.recommendation)}
+            </Text>
             <Text style={{ marginTop: s(6), color: "#111827", fontWeight: "800" }}>{recommendation.adjustment}</Text>
             <Text style={{ marginTop: s(8), color: "#4B5563", lineHeight: clamp(s(20), 18, 22) }}>{recommendation.reason}</Text>
+            {needsTimingConfirmation ? (
+              <Text style={{ marginTop: s(10), color: "#92400E", lineHeight: clamp(s(20), 18, 22), fontWeight: "700" }}>
+                Confirm the detected timing, type the total shot time, or send another quieter video before changing grind.
+              </Text>
+            ) : null}
           </InfoCard>
 
-          {recommendation.calculation_explanation?.length ? (
+          {!needsTimingConfirmation && recommendation.calculation_explanation?.length ? (
             <InfoCard title="Why this setting">
               {recommendation.calculation_explanation.map((item) => <Bullet key={item} text={item} />)}
             </InfoCard>
@@ -506,19 +615,11 @@ function Bullet({ text }: { text: string }) {
   );
 }
 
-function summarizeContext(context: ShotContext): string[] {
-  const items: string[] = [];
-  if (context.machine) items.push(`Machine: ${context.machine}`);
-  if (context.uses_built_in_grinder) items.push("Grinder: built-in");
-  else if (context.grinder) items.push(`Grinder: ${context.grinder}`);
-  if (context.grind_setting) items.push(`Grind: ${context.grind_setting}`);
-  if (context.dose_g) items.push(`Dose: ${context.dose_g}g`);
-  if (context.roast_level) items.push(`Roast: ${context.roast_level}`);
-  if (context.taste) items.push(`Taste: ${context.taste}`);
-  if (context.total_shot_seconds) items.push(`Timing: ${context.total_shot_seconds}s`);
-  return items;
-}
-
 function titleCase(value: string) {
   return value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function stripMessageForStorage(message: LocalMessage): LocalMessage {
+  const { image_base64, ...rest } = message;
+  return rest;
 }

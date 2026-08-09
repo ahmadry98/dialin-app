@@ -199,7 +199,7 @@ const filteredMachines = machines.filter((m) =>
             }}
             numberOfLines={3}
           >
-            Guides + routines + (soon) AI shot analysis — tailored to your machine.
+            Guides + routines + AI shot analysis — tailored to your machine.
           </Text>
 
           <View style={{ marginTop: s(14) }}>
