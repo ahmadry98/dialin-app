@@ -127,6 +127,20 @@ function InfoPill({
   );
 }
 
+
+function MachineHeroImage({ uri, height }: { uri: string | null; height: number }) {
+  const [failed, setFailed] = useState(false);
+  if (!uri || failed) return <MachineImagePlaceholder height={height} />;
+  return (
+    <Image
+      source={{ uri }}
+      style={{ width: "100%", height, backgroundColor: "#F4F2EE" }}
+      resizeMode="cover"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 function MachineImagePlaceholder({ height }: { height: number }) {
   return (
     <View
@@ -281,15 +295,7 @@ export default function MachineHub() {
           ...shadowCard(),
         }}
       >
-        {machine.image ? (
-          <Image
-            source={{ uri: machine.image }}
-            style={{ width: "100%", height: s(190), backgroundColor: "#F4F2EE" }}
-            resizeMode="cover"
-          />
-        ) : (
-          <MachineImagePlaceholder height={s(190)} />
-        )}
+        <MachineHeroImage uri={machine.image} height={s(190)} />
 
         <View style={{ padding: s(16) }}>
           <Text

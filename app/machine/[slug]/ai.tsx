@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { View, Text, Pressable, ActivityIndicator } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
-import AIShotChat from "../../../components/AIShotChat";
+import AIShotChat, { type AIShotChatHandle } from "../../../components/AIShotChat";
 import { fetchMachine, type Machine } from "../../../lib/api";
 import { getPreferredGrinder } from "../../../utils/storage";
 import { clamp, s } from "../../../utils/ui";
@@ -13,6 +13,7 @@ export default function AIShotAnalysis() {
   const [machine, setMachine] = useState<Machine | null>(null);
   const [grinderName, setGrinderName] = useState<string | null>(null);
   const [loadingContext, setLoadingContext] = useState(true);
+  const chatRef = useRef<AIShotChatHandle>(null);
 
   useEffect(() => {
     (async () => {
@@ -51,22 +52,41 @@ export default function AIShotAnalysis() {
             </Text>
           </View>
 
-          <Pressable
-            onPress={() => router.back()}
-            accessibilityLabel="Go back"
-            style={({ pressed }) => ({
-              width: s(42),
-              height: s(42),
-              borderRadius: 999,
-              alignItems: "center",
-              justifyContent: "center",
-              backgroundColor: pressed ? "#E9EAEE" : "white",
-              borderWidth: 1,
-              borderColor: "#E1E4EA",
-            })}
-          >
-            <Ionicons name="arrow-back" size={22} color="#111827" />
-          </Pressable>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: s(8) }}>
+            <Pressable
+              onPress={() => chatRef.current?.reset()}
+              accessibilityLabel="Start new shot"
+              style={({ pressed }) => ({
+                width: s(42),
+                height: s(42),
+                borderRadius: 999,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: pressed ? "#E9EAEE" : "white",
+                borderWidth: 1,
+                borderColor: "#E1E4EA",
+              })}
+            >
+              <Ionicons name="refresh" size={20} color="#111827" />
+            </Pressable>
+
+            <Pressable
+              onPress={() => router.back()}
+              accessibilityLabel="Go back"
+              style={({ pressed }) => ({
+                width: s(42),
+                height: s(42),
+                borderRadius: 999,
+                alignItems: "center",
+                justifyContent: "center",
+                backgroundColor: pressed ? "#E9EAEE" : "white",
+                borderWidth: 1,
+                borderColor: "#E1E4EA",
+              })}
+            >
+              <Ionicons name="arrow-back" size={22} color="#111827" />
+            </Pressable>
+          </View>
         </View>
       </View>
 
@@ -75,7 +95,7 @@ export default function AIShotAnalysis() {
           <ActivityIndicator />
         </View>
       ) : (
-        <AIShotChat machineName={machine?.name ?? null} grinderName={grinderName} usesBuiltInGrinder={machine?.has_built_in_grinder ?? false} />
+        <AIShotChat ref={chatRef} machineName={machine?.name ?? null} grinderName={grinderName} usesBuiltInGrinder={machine?.has_built_in_grinder ?? false} chatSessionKey={`machine:${slug || "unknown"}`} />
       )}
     </View>
   );
