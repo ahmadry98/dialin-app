@@ -47,6 +47,24 @@ function Tag({ label }: { label: string }) {
   );
 }
 
+
+function MachineCardImage({ uri, height }: { uri: string | null; height: number }) {
+  const [failed, setFailed] = useState(false);
+  if (!uri || failed) return <MachineImagePlaceholder height={height} />;
+  return (
+    <Image
+      source={{ uri }}
+      style={{
+        width: "100%",
+        height,
+        backgroundColor: "#F4F2EE",
+      }}
+      resizeMode="cover"
+      onError={() => setFailed(true)}
+    />
+  );
+}
+
 function MachineImagePlaceholder({ height }: { height: number }) {
   return (
     <View
@@ -248,19 +266,7 @@ export default function SelectMachine() {
                 opacity: pressed ? 0.97 : 1,
               })}
             >
-              {item.image ? (
-                <Image
-                  source={{ uri: item.image }}
-                  style={{
-                    width: "100%",
-                    height: clamp(v(150), 120, 170),
-                    backgroundColor: "#F4F2EE",
-                  }}
-                  resizeMode="cover"
-                />
-              ) : (
-                <MachineImagePlaceholder height={clamp(v(150), 120, 170)} />
-              )}
+              <MachineCardImage uri={item.image} height={clamp(v(150), 120, 170)} />
 
               <View style={{ padding: s(14) }}>
                 <Text
