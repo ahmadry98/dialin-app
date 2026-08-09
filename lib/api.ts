@@ -10,6 +10,7 @@ export type Machine = {
   subtitle: string;
   image: string | null;
   image_url: string;
+  fallback_image?: string | null;
   baseline_dose: number;
   baseline_yield: number;
   baseline_seconds: number | string;
@@ -274,6 +275,7 @@ function normalizeProfileMachine(profile: EquipmentProfileMachine): Machine {
     subtitle,
     image: profileImage || localImage,
     image_url: profileImage || localImage || "",
+    fallback_image: profileImage ? localImage : null,
     baseline_dose: local?.baseline.dose || 18,
     baseline_yield: local?.baseline.yield || 36,
     baseline_seconds: baselineSeconds,
@@ -356,8 +358,8 @@ const LOCAL_PROFILE_IMAGES: Record<string, LocalMachine["image"]> = {
 };
 
 function profileImageUri(profile: EquipmentProfileMachine): string | null {
-  if (profile.image_url) return profile.image_url;
-  if (profile.image?.url) return profile.image.url;
+  if (profile.image_url) return absoluteApiUrl(profile.image_url);
+  if (profile.image?.url) return absoluteApiUrl(profile.image.url);
 
   const candidates = [profile.image?.local_asset_key, profile.slug ? `machine-${profile.slug}` : null].filter(Boolean) as string[];
   for (const key of candidates) {
@@ -383,6 +385,7 @@ function normalizeLocalMachine(machine: LocalMachine): Machine {
     subtitle: machine.subtitle,
     image: imageUri,
     image_url: imageUri || "",
+    fallback_image: null,
     baseline_dose: machine.baseline.dose,
     baseline_yield: machine.baseline.yield,
     baseline_seconds: machine.baseline.seconds,
@@ -432,6 +435,12 @@ function getLocalTags(machine: LocalMachine): string[] {
   if (name.includes("silvia")) return ["58mm", "External grinder"];
   if (name.includes("gaggia")) return ["58mm", "Classic"];
   return ["Espresso"];
+}
+
+function absoluteApiUrl(url: string): string {
+  if (/^https?:\/\//i.test(url) || url.startsWith("file:") || url.startsWith("data:")) return url;
+  if (url.startsWith("/")) return `${API_BASE_URL.replace(/\/$/, "")}${url}`;
+  return url;
 }
 
 function localImageUri(source: LocalMachine["image"]): string | null {

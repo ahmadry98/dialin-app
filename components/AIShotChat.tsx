@@ -15,6 +15,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
+import { VideoView, useVideoPlayer } from "expo-video";
 
 import { clamp, s } from "../utils/ui";
 import {
@@ -52,6 +53,8 @@ type StoredChatSession = {
 };
 
 const CHAT_STORAGE_PREFIX = "dialchat-session";
+const MAX_SHOT_VIDEO_SECONDS = 80;
+const MAX_SHOT_VIDEO_MS = MAX_SHOT_VIDEO_SECONDS * 1000;
 
 const INITIAL_MESSAGE: LocalMessage = {
   id: "assistant-start",
@@ -238,6 +241,9 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
       base64: true,
       mediaTypes: ["images", "videos"],
       quality: 0.8,
+      videoExportPreset: ImagePicker.VideoExportPreset.H264_960x540,
+      videoMaxDuration: MAX_SHOT_VIDEO_SECONDS,
+      videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
     });
 
     if (result.canceled || !result.assets.length) return;
@@ -268,11 +274,19 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
   }
 
   async function attachShotVideoAsset(asset: ImagePicker.ImagePickerAsset) {
-    const filename = asset.fileName || asset.uri.split("/").pop() || "shot-video.mov";
-    const contentType = asset.mimeType || (filename.toLowerCase().endsWith(".mov") ? "video/quicktime" : "video/mp4");
+    if (asset.duration && asset.duration > MAX_SHOT_VIDEO_MS) {
+      Alert.alert(
+        "Video is too long",
+        `Send a shot video under ${MAX_SHOT_VIDEO_SECONDS} seconds. Trim it in Photos first, then attach it again.`,
+      );
+      return;
+    }
+
+    const filename = normalizedVideoFilename(asset);
+    const contentType = normalizedVideoContentType(asset, filename);
 
     setError(null);
-    setActivityLabel("Uploading video...");
+    setActivityLabel("Preparing smaller video...");
     setIsSending(true);
     try {
       const target = await createMediaUploadUrl({
@@ -281,6 +295,7 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
         media_kind: "shot_video",
         user_id: shotContext.user_id || "demo-user",
       });
+      setActivityLabel("Uploading compressed video...");
       await uploadFileToMediaUrl({
         file_uri: asset.uri,
         upload_url: target.upload_url,
@@ -294,6 +309,7 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
         content_type: contentType,
       });
 
+      setActivityLabel("Analyzing shot audio...");
       const nextContext = { ...shotContext, video_s3_key: registered.video_s3_key || registered.media_key };
       setIsSending(false);
       await sendMessage(
@@ -463,6 +479,21 @@ function inferPhotoKind(context: ShotContext): "machine" | "grinder" {
   return "machine";
 }
 
+
+function normalizedVideoFilename(asset: ImagePicker.ImagePickerAsset): string {
+  const rawName = asset.fileName || asset.uri.split("/").pop() || "shot-video.mp4";
+  if (asset.mimeType === "video/mp4" && !rawName.toLowerCase().endsWith(".mp4")) {
+    return `${rawName.replace(/\.[^.]+$/, "")}.mp4`;
+  }
+  return rawName;
+}
+
+function normalizedVideoContentType(asset: ImagePicker.ImagePickerAsset, filename: string): string {
+  if (asset.mimeType) return asset.mimeType;
+  if (/\.mov$/i.test(filename)) return "video/quicktime";
+  return "video/mp4";
+}
+
 function isVideoAsset(asset: ImagePicker.ImagePickerAsset): boolean {
   const mime = asset.mimeType?.toLowerCase() || "";
   const uri = asset.uri.toLowerCase();
@@ -479,6 +510,41 @@ function cleanErrorMessage(message: string): string {
   if (/network request failed/i.test(message)) return "Could not reach DialChat. Check that the backend is running and your phone can access it.";
   if (/internal server error/i.test(message)) return "DialChat hit a server error. Try again, or send a shorter video.";
   return message;
+}
+
+
+function InlineShotVideo({ uri }: { uri?: string | null }) {
+  const player = useVideoPlayer(uri ? { uri } : null, (instance) => {
+    instance.loop = false;
+  });
+
+  if (!uri) {
+    return (
+      <View
+        style={{
+          width: s(210),
+          height: s(142),
+          borderRadius: s(17),
+          backgroundColor: "#111113",
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
+        <Ionicons name="play-circle" size={44} color="white" />
+      </View>
+    );
+  }
+
+  return (
+    <VideoView
+      player={player}
+      fullscreenOptions={{ enable: true }}
+      allowsPictureInPicture={false}
+      nativeControls
+      style={{ width: s(210), height: s(142), borderRadius: s(17), backgroundColor: "#111113" }}
+      contentFit="cover"
+    />
+  );
 }
 
 
@@ -501,19 +567,7 @@ function Bubble({ message }: { message: LocalMessage }) {
       {message.attachment_uri ? (
         <View>
           {message.attachment_type === "video" ? (
-            <View
-              style={{
-                width: s(210),
-                minHeight: s(142),
-                borderRadius: s(17),
-                backgroundColor: "#111113",
-                alignItems: "center",
-                justifyContent: "center",
-                padding: s(16),
-              }}
-            >
-              <Ionicons name="play-circle" size={44} color="white" />
-            </View>
+            <InlineShotVideo uri={message.attachment_uri} />
           ) : (
             <Image
               source={{ uri: message.attachment_uri }}

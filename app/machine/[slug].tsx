@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import { View, Text, ScrollView, Image, Pressable, Animated } from "react-native";
+import { View, Text, ScrollView, Pressable, Animated } from "react-native";
 import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { Image as ExpoImage } from "expo-image";
 import { s, v, clamp } from "../../utils/ui";
 import { fetchMachine, type Machine } from "../../lib/api";
 import {
@@ -128,14 +129,18 @@ function InfoPill({
 }
 
 
-function MachineHeroImage({ uri, height }: { uri: string | null; height: number }) {
+function MachineHeroImage({ uri, fallbackUri, height }: { uri: string | null; fallbackUri?: string | null; height: number }) {
   const [failed, setFailed] = useState(false);
-  if (!uri || failed) return <MachineImagePlaceholder height={height} />;
+  const displayUri = failed ? fallbackUri : uri;
+  if (!displayUri) return <MachineImagePlaceholder height={height} />;
   return (
-    <Image
-      source={{ uri }}
+    <ExpoImage
+      source={{ uri: displayUri }}
       style={{ width: "100%", height, backgroundColor: "#F4F2EE" }}
-      resizeMode="cover"
+      contentFit="cover"
+      transition={160}
+      cachePolicy="memory-disk"
+      recyclingKey={displayUri}
       onError={() => setFailed(true)}
     />
   );
@@ -295,7 +300,27 @@ export default function MachineHub() {
           ...shadowCard(),
         }}
       >
-        <MachineHeroImage uri={machine.image} height={s(190)} />
+        <View>
+          <MachineHeroImage uri={machine.image_url || machine.image} fallbackUri={machine.fallback_image} height={s(190)} />
+          <Pressable
+            onPress={() => router.push("/select-machine")}
+            accessibilityLabel="Back to machines"
+            hitSlop={8}
+            style={({ pressed }) => ({
+              position: "absolute",
+              top: s(10),
+              right: s(10),
+              width: s(38),
+              height: s(38),
+              borderRadius: 999,
+              alignItems: "center",
+              justifyContent: "center",
+              backgroundColor: pressed ? "rgba(255,255,255,0.78)" : "rgba(255,255,255,0.58)",
+            })}
+          >
+            <Ionicons name="arrow-back" size={22} color="#111113" />
+          </Pressable>
+        </View>
 
         <View style={{ padding: s(16) }}>
           <Text

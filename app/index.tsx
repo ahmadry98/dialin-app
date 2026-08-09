@@ -1,13 +1,12 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, Pressable, ScrollView, Image, Dimensions, ActivityIndicator } from "react-native";
+import React, { useEffect, useMemo, useState } from "react";
+import { View, Text, Pressable, ScrollView, Image, ActivityIndicator } from "react-native";
 import { router } from "expo-router";
 import { s, v, clamp } from "../utils/ui";
 
-import { getPreferredMachineId, getLastRoast } from "../utils/storage";
+import { getPreferredMachineId } from "../utils/storage";
 import { useSearch } from "../components/SearchContext";
 //import { MACHINES } from "../data/machines";
 import { fetchMachines, type Machine } from "../lib/api";
-const W = Dimensions.get("window").width;
 const P = s(20);
 function shadowCard() {
   return {
@@ -17,6 +16,16 @@ function shadowCard() {
     shadowOffset: { width: 0, height: s(6) },
     elevation: 2,
   } as const;
+}
+
+function machineOfDayIndex(count: number, date = new Date()): number {
+  if (count <= 0) return 0;
+  const key = `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+  let hash = 0;
+  for (let index = 0; index < key.length; index += 1) {
+    hash = (hash * 31 + key.charCodeAt(index)) >>> 0;
+  }
+  return hash % count;
 }
 
 function PrimaryButton({ label, onPress }: { label: string; onPress: () => void }) {
@@ -39,61 +48,10 @@ function PrimaryButton({ label, onPress }: { label: string; onPress: () => void 
   );
 }
 
-function MachineCard({
-  name,
-  image,
-  onPress,
-}: {
-  name: string;
-  image: any;
-  onPress: () => void;
-}) {
-  return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => ({
-        width: clamp(s(200), 170, 230),
-        marginRight: s(12),
-        borderRadius: s(18),
-        backgroundColor: "white",
-        borderWidth: 1,
-        borderColor: "rgba(0,0,0,0.06)",
-        overflow: "hidden",
-        ...shadowCard(),
-        transform: [{ scale: pressed ? 0.99 : 1 }],
-        opacity: pressed ? 0.98 : 1,
-      })}
-    >
-      <Image
-        source={image}
-        style={{ width: "100%", height: clamp(v(140), s(110), s(160)) }}
-        resizeMode="cover"
-      />
-      <View style={{ padding: s(12) }}>
-        <Text
-          style={{
-            fontFamily: "Nunito_700Bold",
-            fontSize: clamp(s(14.5), 13.5, 16),
-            color: "#0B0B0F",
-          }}
-          numberOfLines={1}
-        >
-          {name}
-        </Text>
-        <Text style={{ marginTop: s(4), fontSize: clamp(s(12.5), 11.5, 14), color: "#6B7280" }}>
-          Open →
-        </Text>
-      </View>
-    </Pressable>
-  );
-}
-
 export default function Home() {
   const { isSearchOpen, query } = useSearch();
 
   //const [lastMachine, setLastMachine] = useState<any | null>(null);
-  const [lastRoast, setLastRoast] = useState<string | null>(null);
-
   const [lastMachine, setLastMachine] = useState<Machine | null>(null);
   const [machines, setMachines] = useState<Machine[]>([]);
   const [loadingMachines, setLoadingMachines] = useState(true);
@@ -119,8 +77,6 @@ export default function Home() {
         if (foundMachine) {
           setLastMachine(foundMachine);
 
-          const roast = await getLastRoast(machineId);
-          setLastRoast(roast);
         }
       }
     } catch (error) {
@@ -134,6 +90,10 @@ export default function Home() {
 const filteredMachines = machines.filter((m) =>
   m.name.toLowerCase().includes(query.trim().toLowerCase())
 );
+const machineOfTheDay = useMemo(() => {
+  if (!machines.length) return null;
+  return machines[machineOfDayIndex(machines.length)];
+}, [machines]);
 
   return (
     <ScrollView
@@ -357,13 +317,10 @@ const filteredMachines = machines.filter((m) =>
         </View>
       )}
 
-      {/* CONTINUE LAST SHOT */}
+      {/* FAVORITE MACHINE */}
       {lastMachine && (
         <Pressable
-          onPress={() => {
-            router.replace(`/machine/${lastMachine.slug}`);
-            router.push(`/machine/${lastMachine.slug}/dial-in`);
-          }}
+          onPress={() => router.push(`/machine/${lastMachine.slug}`)}
           style={({ pressed }) => ({
             marginBottom: s(14),
             marginTop: s(14),
@@ -380,7 +337,7 @@ const filteredMachines = machines.filter((m) =>
               fontWeight: "700",
             }}
           >
-            CONTINUE YOUR LAST SHOT
+            GO TO YOUR FAVORITE MACHINE
           </Text>
 
           <Text
@@ -394,17 +351,15 @@ const filteredMachines = machines.filter((m) =>
             {lastMachine.name}
           </Text>
 
-          {lastRoast && (
-            <Text
-              style={{
-                marginTop: s(6),
-                color: "rgba(255,255,255,0.8)",
-                fontSize: clamp(s(13), 12, 15),
-              }}
-            >
-              Roast: {lastRoast}
-            </Text>
-          )}
+          <Text
+            style={{
+              marginTop: s(6),
+              color: "rgba(255,255,255,0.78)",
+              fontSize: clamp(s(13), 12, 15),
+            }}
+          >
+            Open machine profile →
+          </Text>
         </Pressable>
       )}
 
@@ -418,7 +373,7 @@ const filteredMachines = machines.filter((m) =>
         }}
       >
         <Text style={{ fontFamily: "Nunito_700Bold", fontSize: clamp(s(18), 16, 20), color: "#0B0B0F" }}>
-          Machine Of the Month
+          Machine Of the Day
         </Text>
 
         <Pressable onPress={() => router.push("/select-machine")}>
@@ -433,11 +388,10 @@ const filteredMachines = machines.filter((m) =>
     <View style={{ paddingVertical: s(20) }}>
       <ActivityIndicator />
     </View>
-  ) : (
-    machines.slice(0, 1).map((machine) => (
+  ) : machineOfTheDay ? (
       <Pressable
-        key={machine.slug}
-        onPress={() => router.push(`/machine/${machine.slug}`)}
+        key={machineOfTheDay.slug}
+        onPress={() => router.push(`/machine/${machineOfTheDay.slug}`)}
         style={({ pressed }) => ({
           width: "100%",
           borderRadius: s(24),
@@ -451,7 +405,7 @@ const filteredMachines = machines.filter((m) =>
         })}
       >
         {/* IMAGE SECTION */}
-        {machine.image ? (
+        {machineOfTheDay.image ? (
           <View
   style={{
     width: "100%",
@@ -461,7 +415,7 @@ const filteredMachines = machines.filter((m) =>
   }}
 >
   <Image
-    source={{ uri: machine.image }}
+    source={{ uri: machineOfTheDay.image }}
     style={{
       width: "100%",
       height: clamp(v(150), 135, 180),
@@ -494,7 +448,7 @@ const filteredMachines = machines.filter((m) =>
               color: "#0B0B0F",
             }}
           >
-            {machine.name}
+            {machineOfTheDay.name}
           </Text>
 
           <Text
@@ -505,7 +459,7 @@ const filteredMachines = machines.filter((m) =>
               color: "#6B7280",
             }}
           >
-            {machine.subtitle}
+            {machineOfTheDay.subtitle}
           </Text>
 
           <Text
@@ -519,8 +473,7 @@ const filteredMachines = machines.filter((m) =>
           </Text>
         </View>
       </Pressable>
-    ))
-  )}
+  ) : null}
 </View>
 
       {/* AI BANNER */}

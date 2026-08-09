@@ -4,11 +4,11 @@ import {
   Text,
   Pressable,
   FlatList,
-  Image,
   ActivityIndicator,
 } from "react-native";
 import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { Image as ExpoImage } from "expo-image";
 
 import { s, v, clamp } from "../utils/ui";
 import { useSearch } from "../components/SearchContext";
@@ -48,18 +48,22 @@ function Tag({ label }: { label: string }) {
 }
 
 
-function MachineCardImage({ uri, height }: { uri: string | null; height: number }) {
+function MachineCardImage({ uri, fallbackUri, height }: { uri: string | null; fallbackUri?: string | null; height: number }) {
   const [failed, setFailed] = useState(false);
-  if (!uri || failed) return <MachineImagePlaceholder height={height} />;
+  const displayUri = failed ? fallbackUri : uri;
+  if (!displayUri) return <MachineImagePlaceholder height={height} />;
   return (
-    <Image
-      source={{ uri }}
+    <ExpoImage
+      source={{ uri: displayUri }}
       style={{
         width: "100%",
         height,
         backgroundColor: "#F4F2EE",
       }}
-      resizeMode="cover"
+      contentFit="cover"
+      transition={120}
+      cachePolicy="memory-disk"
+      recyclingKey={displayUri}
       onError={() => setFailed(true)}
     />
   );
