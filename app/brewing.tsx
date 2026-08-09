@@ -250,7 +250,7 @@ export default function Brewing() {
         }}
       >
         <Image
-          source={require("../assets/images/home/brewing-guide.jpg")}
+          source={require("../assets/images/home/newadded.jpg")}
           style={{ width: "100%", height: clamp(v(220), 170, 270) }}
           resizeMode="cover"
         />
