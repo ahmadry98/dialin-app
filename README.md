@@ -53,14 +53,26 @@ Join our community of developers creating universal apps.
 
 Run the FastAPI backend first, then point Expo at it. The iOS simulator can use localhost; a real phone needs your Mac LAN IP.
 
+Local simulator:
+
 ```bash
 EXPO_PUBLIC_AI_SHOT_API_URL=http://localhost:8000 npm run ios
 ```
 
-For a real phone on the same Wi-Fi:
+Real phone on the same Wi-Fi:
 
 ```bash
 EXPO_PUBLIC_AI_SHOT_API_URL=http://YOUR_MAC_IP:8000 npm run ios
 ```
+
+Cloud/Terraform dev environment:
+
+```bash
+EXPO_PUBLIC_AI_SHOT_API_URL=https://api-dev.fursa.click \
+EXPO_PUBLIC_DIALEDIN_API_URL=https://api-dev.fursa.click \
+npm run ios
+```
+
+`EXPO_PUBLIC_AI_SHOT_API_URL` is used by DialChat, image recognition, S3 media upload, and shot analysis. `EXPO_PUBLIC_DIALEDIN_API_URL` is used by machine/grinder pages; in the current cloud setup it can also point to the DialChat API because that API serves `/machines` and `/grinders` from DynamoDB.
 
 Machine and grinder photos are sent as base64 for recognition. Shot videos use the backend media flow: create upload URL, upload the file, register the media, then send the returned key to DialChat.
