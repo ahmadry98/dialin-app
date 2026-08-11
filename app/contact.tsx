@@ -5,7 +5,7 @@ import { router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { s, v, clamp } from "../utils/ui";
 
-const EMAIL = "ahmadrayan1998@gmail.com";
+const EMAIL = "support@dialedin.me";
 
 function shadowCard() {
   return {
@@ -42,7 +42,7 @@ async function copyEmail() {
 
 async function openEmail() {
   const subject = encodeURIComponent("DialedIn app feedback");
-  const body = encodeURIComponent("Hi Ahmad,\n\nI wanted to contact you about DialedIn.\n\n");
+  const body = encodeURIComponent("Hi DialedIn,\n\nI wanted to contact you about the app.\n\n");
   const url = `mailto:${EMAIL}?subject=${subject}&body=${body}`;
 
   try {
