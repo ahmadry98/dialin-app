@@ -39,6 +39,9 @@ type EquipmentProfileMachine = {
   image_url?: string | null;
   image?: {
     url?: string | null;
+    media_key?: string | null;
+    content_type?: string | null;
+    storage_mode?: string | null;
     local_asset_key?: string | null;
     source_url?: string | null;
     license_or_source_type?: string | null;
@@ -358,8 +361,9 @@ const LOCAL_PROFILE_IMAGES: Record<string, LocalMachine["image"]> = {
 };
 
 function profileImageUri(profile: EquipmentProfileMachine): string | null {
-  if (profile.image_url) return absoluteApiUrl(profile.image_url);
-  if (profile.image?.url) return absoluteApiUrl(profile.image.url);
+  const imageVersion = profile.image?.media_key || profile.image?.source_url || null;
+  if (profile.image_url) return versionedApiUrl(profile.image_url, imageVersion);
+  if (profile.image?.url) return versionedApiUrl(profile.image.url, imageVersion);
 
   const candidates = [profile.image?.local_asset_key, profile.slug ? `machine-${profile.slug}` : null].filter(Boolean) as string[];
   for (const key of candidates) {
@@ -441,6 +445,13 @@ function absoluteApiUrl(url: string): string {
   if (/^https?:\/\//i.test(url) || url.startsWith("file:") || url.startsWith("data:")) return url;
   if (url.startsWith("/")) return `${API_BASE_URL.replace(/\/$/, "")}${url}`;
   return url;
+}
+
+function versionedApiUrl(url: string, version: string | null): string {
+  const absolute = absoluteApiUrl(url);
+  if (!version || absolute.startsWith("file:") || absolute.startsWith("data:")) return absolute;
+  const separator = absolute.includes("?") ? "&" : "?";
+  return `${absolute}${separator}v=${encodeURIComponent(version)}`;
 }
 
 function localImageUri(source: LocalMachine["image"]): string | null {
