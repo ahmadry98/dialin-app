@@ -1,5 +1,7 @@
 import { Image } from "react-native";
 
+import { captureException } from "./observability";
+
 import { MACHINES as LOCAL_MACHINES, type Machine as LocalMachine } from "../data/machines";
 
 export const API_BASE_URL = process.env.EXPO_PUBLIC_DIALEDIN_API_URL || "http://localhost:8000";
@@ -89,6 +91,7 @@ export async function fetchMachines(): Promise<Machine[]> {
     const profiles: EquipmentProfileMachine[] = Array.isArray(payload) ? payload : payload.machines || [];
     return sortMachines(profiles.map(normalizeProfileMachine));
   } catch (error) {
+    captureException(error, { feature: "equipment_api", action: "fetch_machines" });
     console.log("Using local machine fallback:", error);
     return localMachines();
   }
@@ -104,6 +107,7 @@ export async function fetchMachine(slug: string): Promise<Machine> {
 
     return normalizeProfileMachine(await response.json());
   } catch (error) {
+    captureException(error, { feature: "equipment_api", action: "fetch_machine", extra: { slug } });
     console.log("Using local machine fallback:", error);
     const machine = LOCAL_MACHINES[slug];
     if (!machine) {
@@ -125,6 +129,7 @@ export async function fetchGrinders(): Promise<Grinder[]> {
     const grinders = Array.isArray(payload) ? payload : payload.grinders || [];
     return sortGrinders(grinders.map(normalizeProfileGrinder));
   } catch (error) {
+    captureException(error, { feature: "equipment_api", action: "fetch_grinders" });
     console.log("Using local grinder fallback:", error);
     return LOCAL_GRINDERS;
   }

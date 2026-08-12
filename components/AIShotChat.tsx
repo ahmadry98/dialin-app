@@ -18,6 +18,7 @@ import * as ImagePicker from "expo-image-picker";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { VideoView, useVideoPlayer } from "expo-video";
 
+import { captureEvent, captureException } from "../lib/observability";
 import { clamp, s } from "../utils/ui";
 import {
   createMediaUploadUrl,
@@ -107,6 +108,7 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
           setAnalysis(stored.analysis);
         }
       } catch (loadError) {
+        captureException(loadError, { feature: "dialchat", action: "restore_session" });
         console.log("Failed to restore DialChat session:", loadError);
       } finally {
         if (isMounted) {
@@ -151,6 +153,7 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
       analysis,
     };
     AsyncStorage.setItem(storageKey, JSON.stringify(session)).catch((saveError) => {
+      captureException(saveError, { feature: "dialchat", action: "save_session" });
       console.log("Failed to save DialChat session:", saveError);
     });
   }, [analysis, hasLoadedSession, messages, shotContext, storageKey]);
@@ -223,6 +226,16 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
         setAnalysisOpen(true);
       }
     } catch (submitError) {
+      captureException(submitError, {
+        feature: "dialchat",
+        action: "send_message",
+        extra: {
+          has_image: Boolean(userMessage.image_base64),
+          image_kind: userMessage.image_kind || null,
+          has_video_context: Boolean(contextForRequest.video_s3_key),
+          message_count: nextMessages.length,
+        },
+      });
       const message = submitError instanceof Error ? submitError.message : "Could not reach DialChat.";
       setError(cleanErrorMessage(message));
     } finally {
@@ -235,6 +248,7 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
 
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
+      captureEvent("media_permission_denied", { feature: "dialchat" });
       Alert.alert("Permission needed", "Allow photo library access to attach a photo or shot video.");
       return;
     }
@@ -249,7 +263,10 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
       videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
     });
 
-    if (result.canceled || !result.assets.length) return;
+    if (result.canceled || !result.assets.length) {
+      captureEvent("media_picker_cancelled", { feature: "dialchat" });
+      return;
+    }
 
     const asset = result.assets[0];
     if (asset.type === "video" || isVideoAsset(asset)) {
@@ -275,6 +292,7 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
         attachment_type: "image",
       });
     } catch (photoError) {
+      captureException(photoError, { feature: "dialchat", action: "prepare_photo", extra: { image_kind: kind } });
       setIsSending(false);
       const message = photoError instanceof Error ? photoError.message : "Try choosing a different image.";
       Alert.alert("Could not prepare photo", message);
@@ -283,6 +301,7 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
 
   async function attachShotVideoAsset(asset: ImagePicker.ImagePickerAsset) {
     if (asset.duration && asset.duration > MAX_SHOT_VIDEO_MS) {
+      captureEvent("shot_video_rejected_too_long", { duration_ms: asset.duration, max_seconds: MAX_SHOT_VIDEO_SECONDS });
       Alert.alert(
         "Video is too long",
         `Send a shot video under ${MAX_SHOT_VIDEO_SECONDS} seconds. Trim it in Photos first, then attach it again.`,
@@ -332,6 +351,11 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
         nextContext,
       );
     } catch (uploadError) {
+      captureException(uploadError, {
+        feature: "dialchat",
+        action: "upload_or_analyze_video",
+        extra: { content_type: contentType, duration_ms: asset.duration || null },
+      });
       const message = uploadError instanceof Error ? uploadError.message : "Could not upload the shot video.";
       setError(cleanErrorMessage(message));
       setIsSending(false);
