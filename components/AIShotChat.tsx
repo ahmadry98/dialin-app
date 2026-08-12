@@ -15,6 +15,7 @@ import {
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
+import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { VideoView, useVideoPlayer } from "expo-video";
 
 import { clamp, s } from "../utils/ui";
@@ -55,6 +56,8 @@ type StoredChatSession = {
 const CHAT_STORAGE_PREFIX = "dialchat-session";
 const MAX_SHOT_VIDEO_SECONDS = 80;
 const MAX_SHOT_VIDEO_MS = MAX_SHOT_VIDEO_SECONDS * 1000;
+const MAX_RECOGNITION_IMAGE_SIDE = 800;
+const RECOGNITION_IMAGE_QUALITY = 0.55;
 
 const INITIAL_MESSAGE: LocalMessage = {
   id: "assistant-start",
@@ -238,9 +241,9 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
 
     const result = await ImagePicker.launchImageLibraryAsync({
       allowsEditing: false,
-      base64: true,
+      base64: false,
       mediaTypes: ["images", "videos"],
-      quality: 0.8,
+      quality: 0.65,
       videoExportPreset: ImagePicker.VideoExportPreset.H264_960x540,
       videoMaxDuration: MAX_SHOT_VIDEO_SECONDS,
       videoQuality: ImagePicker.UIImagePickerControllerQualityType.Medium,
@@ -255,22 +258,27 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
     }
 
     const kind = inferPhotoKind(shotContext);
-    if (!asset.base64) {
-      Alert.alert("Could not read photo", "Try choosing a different image.");
-      return;
+    setActivityLabel("Preparing smaller photo...");
+    setIsSending(true);
+    try {
+      const prepared = await prepareRecognitionPhoto(asset);
+      setIsSending(false);
+      await sendMessage({
+        id: `${Date.now()}-${kind}-photo`,
+        role: "user",
+        content: "Photo attached",
+        image_base64: prepared.base64,
+        image_media_type: prepared.mimeType,
+        image_kind: kind,
+        attachment_uri: prepared.uri,
+        attachment_label: null,
+        attachment_type: "image",
+      });
+    } catch (photoError) {
+      setIsSending(false);
+      const message = photoError instanceof Error ? photoError.message : "Try choosing a different image.";
+      Alert.alert("Could not prepare photo", message);
     }
-
-    await sendMessage({
-      id: `${Date.now()}-${kind}-photo`,
-      role: "user",
-      content: "Photo attached",
-      image_base64: asset.base64,
-      image_media_type: asset.mimeType || "image/jpeg",
-      image_kind: kind,
-      attachment_uri: asset.uri,
-      attachment_label: null,
-      attachment_type: "image",
-    });
   }
 
   async function attachShotVideoAsset(asset: ImagePicker.ImagePickerAsset) {
@@ -479,6 +487,47 @@ function inferPhotoKind(context: ShotContext): "machine" | "grinder" {
   return "machine";
 }
 
+async function prepareRecognitionPhoto(asset: ImagePicker.ImagePickerAsset): Promise<{ uri: string; base64: string; mimeType: string }> {
+  const width = asset.width || 0;
+  const height = asset.height || 0;
+  const longestSide = Math.max(width, height);
+  const resizeAction = longestSide > MAX_RECOGNITION_IMAGE_SIDE
+    ? [width >= height ? { resize: { width: MAX_RECOGNITION_IMAGE_SIDE } } : { resize: { height: MAX_RECOGNITION_IMAGE_SIDE } }]
+    : [];
+
+  const result = await manipulateAsync(asset.uri, resizeAction, {
+    compress: RECOGNITION_IMAGE_QUALITY,
+    format: SaveFormat.JPEG,
+    base64: true,
+  });
+
+  if (!result.base64) {
+    throw new Error("The selected photo could not be prepared for recognition.");
+  }
+
+  if (result.base64.length > 900_000) {
+    const secondPass = await manipulateAsync(result.uri, [{ resize: { width: 640 } }], {
+      compress: 0.45,
+      format: SaveFormat.JPEG,
+      base64: true,
+    });
+    if (!secondPass.base64) {
+      throw new Error("The selected photo could not be prepared for recognition.");
+    }
+    return {
+      uri: secondPass.uri,
+      base64: secondPass.base64,
+      mimeType: "image/jpeg",
+    };
+  }
+
+  return {
+    uri: result.uri,
+    base64: result.base64,
+    mimeType: "image/jpeg",
+  };
+}
+
 
 function normalizedVideoFilename(asset: ImagePicker.ImagePickerAsset): string {
   const rawName = asset.fileName || asset.uri.split("/").pop() || "shot-video.mp4";
@@ -507,6 +556,7 @@ function activityLabelFor(message: LocalMessage): string {
 }
 
 function cleanErrorMessage(message: string): string {
+  if (/413|request entity too large|payload too large/i.test(message)) return "That photo is still too large to analyze. Try a closer crop of the machine/grinder or take a screenshot and send that.";
   if (/network request failed/i.test(message)) return "Could not reach DialChat. Check that the backend is running and your phone can access it.";
   if (/internal server error/i.test(message)) return "DialChat hit a server error. Try again, or send a shorter video.";
   return message;

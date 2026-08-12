@@ -1,78 +1,69 @@
-# Welcome to your Expo app 👋
+# DialedIn Mobile
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+React Native / Expo app for DialedIn. The app includes machine pages, grinder pages, guides, and DialChat AI Shot Analysis.
 
-## Get started
+## Run Locally
 
-1. Install dependencies
-
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+Install dependencies once:
 
 ```bash
-npm run reset-project
+cd /Users/ahmadrayan/Desktop/DialedIn/dialedin-mobile
+npm install
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
-
-## Learn more
-
-To learn more about developing your project with Expo, look at the following resources:
-
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
-
-## DialChat / AI Shot Analysis
-
-Run the FastAPI backend first, then point Expo at it. The iOS simulator can use localhost; a real phone needs your Mac LAN IP.
-
-Local simulator:
+Run against a local backend on the iOS simulator:
 
 ```bash
-EXPO_PUBLIC_AI_SHOT_API_URL=http://localhost:8000 npm run ios
-```
-
-Real phone on the same Wi-Fi:
-
-```bash
-EXPO_PUBLIC_AI_SHOT_API_URL=http://YOUR_MAC_IP:8000 npm run ios
-```
-
-Cloud/Terraform dev environment:
-
-```bash
-EXPO_PUBLIC_AI_SHOT_API_URL=https://api-dev.fursa.click \
-EXPO_PUBLIC_DIALEDIN_API_URL=https://api-dev.fursa.click \
+EXPO_PUBLIC_AI_SHOT_API_URL=http://localhost:8000 \
+EXPO_PUBLIC_DIALEDIN_API_URL=http://localhost:8000 \
 npm run ios
 ```
 
-`EXPO_PUBLIC_AI_SHOT_API_URL` is used by DialChat, image recognition, S3 media upload, and shot analysis. `EXPO_PUBLIC_DIALEDIN_API_URL` is used by machine/grinder pages; in the current cloud setup it can also point to the DialChat API because that API serves `/machines` and `/grinders` from DynamoDB.
+Run against the personal AWS dev API:
 
-Machine and grinder photos are sent as base64 for recognition. Shot videos use the backend media flow: create upload URL, upload the file, register the media, then send the returned key to DialChat.
+```bash
+EXPO_PUBLIC_AI_SHOT_API_URL=http://api-dev.dialedin.me \
+EXPO_PUBLIC_DIALEDIN_API_URL=http://api-dev.dialedin.me \
+npm run ios
+```
+
+A real phone must use a reachable LAN/cloud URL, not simulator-only `localhost`.
+
+## Environment
+
+Copy `.env.example` to `.env` for local defaults. Expo exposes only variables that start with `EXPO_PUBLIC_`.
+
+- `EXPO_PUBLIC_AI_SHOT_API_URL`: DialChat, image recognition, upload URLs, and shot analysis
+- `EXPO_PUBLIC_DIALEDIN_API_URL`: machine and grinder profile API
+
+## DialChat Media Flow
+
+Photos are resized/compressed on-device before they are sent to DialChat for equipment recognition. Shot videos use the backend media flow:
+
+1. The app asks the backend for an upload URL.
+2. The app uploads the selected video.
+3. The app registers the uploaded media.
+4. DialChat analyzes the returned media key.
+
+Shot videos longer than 80 seconds are rejected on-device so users do not wait on huge uploads.
+
+## Checks
+
+```bash
+npm run lint
+npx tsc --noEmit
+npx expo config --json >/tmp/dialedin-expo-config.json
+```
+
+## Release Notes
+
+See `docs/mobile-release-readiness.md` before making TestFlight, App Store, or Play Store builds.
+
+EAS profiles live in `eas.json`:
+
+```bash
+npx eas build --profile preview --platform ios
+npx eas build --profile production --platform ios
+```
+
+Production should use HTTPS URLs such as `https://api.dialedin.me` after the production infrastructure checkpoint is complete.
