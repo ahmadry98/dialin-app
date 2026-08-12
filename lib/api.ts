@@ -89,7 +89,9 @@ export async function fetchMachines(): Promise<Machine[]> {
 
     const payload = await response.json();
     const profiles: EquipmentProfileMachine[] = Array.isArray(payload) ? payload : payload.machines || [];
-    return sortMachines(profiles.map(normalizeProfileMachine));
+    const machines = sortMachines(profiles.map(normalizeProfileMachine));
+    prefetchMachineImages(machines);
+    return machines;
   } catch (error) {
     captureException(error, { feature: "equipment_api", action: "fetch_machines" });
     console.log("Using local machine fallback:", error);
@@ -105,7 +107,9 @@ export async function fetchMachine(slug: string): Promise<Machine> {
       throw new Error(`Failed to fetch machine: ${response.status}`);
     }
 
-    return normalizeProfileMachine(await response.json());
+    const machine = normalizeProfileMachine(await response.json());
+    prefetchMachineImages([machine], 1);
+    return machine;
   } catch (error) {
     captureException(error, { feature: "equipment_api", action: "fetch_machine", extra: { slug } });
     console.log("Using local machine fallback:", error);
@@ -366,20 +370,45 @@ const LOCAL_PROFILE_IMAGES: Record<string, LocalMachine["image"]> = {
 };
 
 function profileImageUri(profile: EquipmentProfileMachine): string | null {
-  const imageVersion = profile.image?.media_key || profile.image?.source_url || null;
-  if (profile.image_url) return versionedApiUrl(profile.image_url, imageVersion);
-  if (profile.image?.url) return versionedApiUrl(profile.image.url, imageVersion);
+  if (profileHasReviewedImage(profile)) {
+    return reviewedMachineImageUrl(profile);
+  }
 
   const candidates = [profile.image?.local_asset_key, profile.slug ? `machine-${profile.slug}` : null].filter(Boolean) as string[];
   for (const key of candidates) {
     const source = LOCAL_PROFILE_IMAGES[key];
     if (source) return localImageUri(source);
   }
+
   return null;
 }
 
 function localMachines(): Machine[] {
-  return sortMachines(Object.values(LOCAL_MACHINES).map(normalizeLocalMachine));
+  const machines = sortMachines(Object.values(LOCAL_MACHINES).map(normalizeLocalMachine));
+  prefetchMachineImages(machines);
+  return machines;
+}
+
+function profileHasReviewedImage(profile: EquipmentProfileMachine): boolean {
+  if (!profile.slug) return false;
+  if (profile.image_url || profile.image?.url) return true;
+  return Boolean(profile.image?.media_key && profile.image.status !== "rejected");
+}
+
+function reviewedMachineImageUrl(profile: EquipmentProfileMachine): string {
+  const url = `${API_BASE_URL}/machines/${encodeURIComponent(profile.slug)}/image`;
+  const version = profile.image?.media_key || profile.image?.source_url || profile.image_url || profile.image?.url || null;
+  return version ? `${url}?v=${encodeURIComponent(version)}` : url;
+}
+
+function prefetchMachineImages(machines: Machine[], limit = 16): void {
+  machines
+    .slice(0, limit)
+    .map((machine) => machine.image_url || machine.image)
+    .filter((uri): uri is string => Boolean(uri))
+    .forEach((uri) => {
+      Image.prefetch(uri).catch(() => undefined);
+    });
 }
 
 function sortMachines(machines: Machine[]): Machine[] {
@@ -444,19 +473,6 @@ function getLocalTags(machine: LocalMachine): string[] {
   if (name.includes("silvia")) return ["58mm", "External grinder"];
   if (name.includes("gaggia")) return ["58mm", "Classic"];
   return ["Espresso"];
-}
-
-function absoluteApiUrl(url: string): string {
-  if (/^https?:\/\//i.test(url) || url.startsWith("file:") || url.startsWith("data:")) return url;
-  if (url.startsWith("/")) return `${API_BASE_URL.replace(/\/$/, "")}${url}`;
-  return url;
-}
-
-function versionedApiUrl(url: string, version: string | null): string {
-  const absolute = absoluteApiUrl(url);
-  if (!version || absolute.startsWith("file:") || absolute.startsWith("data:")) return absolute;
-  const separator = absolute.includes("?") ? "&" : "?";
-  return `${absolute}${separator}v=${encodeURIComponent(version)}`;
 }
 
 function localImageUri(source: LocalMachine["image"]): string | null {

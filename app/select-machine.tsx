@@ -50,22 +50,49 @@ function Tag({ label }: { label: string }) {
 
 function MachineCardImage({ uri, fallbackUri, height }: { uri: string | null; fallbackUri?: string | null; height: number }) {
   const [failed, setFailed] = useState(false);
+  const [loaded, setLoaded] = useState(false);
   const displayUri = failed ? fallbackUri : uri;
   if (!displayUri) return <MachineImagePlaceholder height={height} />;
   return (
-    <ExpoImage
-      source={{ uri: displayUri }}
+    <View style={{ width: "100%", height, backgroundColor: "#F0F1F4" }}>
+      {!loaded ? <MachineImageLoading height={height} /> : null}
+      <ExpoImage
+        source={{ uri: displayUri }}
+        style={{
+          position: "absolute",
+          inset: 0,
+          width: "100%",
+          height,
+          backgroundColor: "#F4F2EE",
+        }}
+        contentFit="cover"
+        transition={120}
+        cachePolicy="memory-disk"
+        priority="high"
+        recyclingKey={displayUri}
+        onLoad={() => setLoaded(true)}
+        onError={() => {
+          setFailed(true);
+          setLoaded(false);
+        }}
+      />
+    </View>
+  );
+}
+
+function MachineImageLoading({ height }: { height: number }) {
+  return (
+    <View
       style={{
         width: "100%",
         height,
-        backgroundColor: "#F4F2EE",
+        backgroundColor: "#F0F1F4",
+        alignItems: "center",
+        justifyContent: "center",
       }}
-      contentFit="cover"
-      transition={120}
-      cachePolicy="memory-disk"
-      recyclingKey={displayUri}
-      onError={() => setFailed(true)}
-    />
+    >
+      <ActivityIndicator size="small" color="#6B7280" />
+    </View>
   );
 }
 
