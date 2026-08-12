@@ -404,7 +404,13 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           onContentSizeChange={() => scrollToLatest(false)}
-          contentContainerStyle={{ padding: s(16), paddingBottom: composerHeight + s(24), gap: s(12) }}
+          contentContainerStyle={{
+            padding: s(16),
+            // The composer moves above the iOS keyboard, so the message list
+            // needs matching room to scroll its newest message into view.
+            paddingBottom: composerHeight + keyboardHeight + s(24),
+            gap: s(12),
+          }}
         >
           {messages.map((message) => <Bubble key={message.id} message={message} />)}
 
