@@ -2,8 +2,8 @@ import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } f
 import {
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Image,
+  Keyboard,
   Modal,
   Platform,
   Pressable,
@@ -17,6 +17,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as ImagePicker from "expo-image-picker";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { VideoView, useVideoPlayer } from "expo-video";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { captureEvent, captureException } from "../lib/observability";
 import { clamp, s } from "../utils/ui";
@@ -54,11 +55,11 @@ type StoredChatSession = {
   analysis: AnalyzeShotResponse | null;
 };
 
-const CHAT_STORAGE_PREFIX = "dialchat-session";
+const CHAT_STORAGE_PREFIX = "dialchat-session-v2";
 const MAX_SHOT_VIDEO_SECONDS = 80;
 const MAX_SHOT_VIDEO_MS = MAX_SHOT_VIDEO_SECONDS * 1000;
-const MAX_RECOGNITION_IMAGE_SIDE = 800;
-const RECOGNITION_IMAGE_QUALITY = 0.55;
+const MAX_RECOGNITION_IMAGE_SIDE = 1200;
+const RECOGNITION_IMAGE_QUALITY = 0.78;
 
 const INITIAL_MESSAGE: LocalMessage = {
   id: "assistant-start",
@@ -81,7 +82,10 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [activityLabel, setActivityLabel] = useState("DialChat is thinking");
   const [hasLoadedSession, setHasLoadedSession] = useState(false);
+  const [keyboardHeight, setKeyboardHeight] = useState(0);
+  const [composerHeight, setComposerHeight] = useState(s(72));
   const scrollRef = useRef<ScrollView>(null);
+  const insets = useSafeAreaInsets();
   const hasLoadedSessionRef = useRef(false);
   const isRestoringSessionRef = useRef(false);
   const storageKey = `${CHAT_STORAGE_PREFIX}:${chatSessionKey}`;
@@ -143,6 +147,22 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
   useEffect(() => {
     requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
   }, [messages, isSending]);
+
+  useEffect(() => {
+    const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvent = Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+
+    const showSub = Keyboard.addListener(showEvent, (event) => {
+      setKeyboardHeight(event.endCoordinates.height);
+      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+    });
+    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
+
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   useEffect(() => {
     if (!hasLoadedSession || isRestoringSessionRef.current) return;
@@ -363,18 +383,16 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
   }
 
 
+  const composerBottom = Platform.OS === "ios" ? keyboardHeight : 0;
+  const composerPaddingBottom = keyboardHeight > 0 ? s(8) : Math.max(insets.bottom, s(8));
+
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-      keyboardVerticalOffset={s(86)}
-      style={{ flex: 1 }}
-    >
       <View style={{ flex: 1, backgroundColor: "#F7F7F8" }}>
         <ScrollView
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={{ padding: s(16), paddingBottom: s(18), gap: s(12) }}
+          contentContainerStyle={{ padding: s(16), paddingBottom: composerHeight + s(24), gap: s(12) }}
         >
           {messages.map((message) => <Bubble key={message.id} message={message} />)}
 
@@ -393,7 +411,21 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
           ) : null}
         </ScrollView>
 
-        <View style={{ borderTopWidth: 1, borderTopColor: "#E5E7EB", padding: s(12), backgroundColor: "white" }}>
+        <View
+          onLayout={(event) => setComposerHeight(event.nativeEvent.layout.height)}
+          style={{
+            position: "absolute",
+            left: 0,
+            right: 0,
+            bottom: composerBottom,
+            borderTopWidth: 1,
+            borderTopColor: "#E5E7EB",
+            paddingHorizontal: s(12),
+            paddingTop: s(10),
+            paddingBottom: composerPaddingBottom,
+            backgroundColor: "white",
+          }}
+        >
           {visibleAnalysis ? (
             <Pressable
               onPress={() => setAnalysisOpen(true)}
@@ -425,6 +457,7 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
               placeholderTextColor="#A1A1AA"
               returnKeyType="send"
               onSubmitEditing={() => submitMessage()}
+              onFocus={() => requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }))}
               style={{
                 flex: 1,
                 minHeight: s(48),
@@ -476,7 +509,6 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
 
         <AnalysisModal analysis={visibleAnalysis} visible={analysisOpen} onClose={() => setAnalysisOpen(false)} />
       </View>
-    </KeyboardAvoidingView>
   );
 }
 
