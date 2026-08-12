@@ -35,6 +35,12 @@ Copy `.env.example` to `.env` for local defaults. Expo exposes only variables th
 
 - `EXPO_PUBLIC_AI_SHOT_API_URL`: DialChat, image recognition, upload URLs, and shot analysis
 - `EXPO_PUBLIC_DIALEDIN_API_URL`: machine and grinder profile API
+- `EXPO_PUBLIC_OBSERVABILITY_LOGS`: keep `true` in dev to print scrubbed failure events; set `false` if logs are noisy
+- `EXPO_PUBLIC_SENTRY_DSN`: reserved for the future Sentry project; currently not required
+
+## Mobile Observability
+
+The app records scrubbed client-side events for API failures, media upload failures, permission denial, oversized shot videos, and DialChat session persistence issues. The helper intentionally redacts image base64, presigned URLs, media keys, video keys, and message contents. When you add Sentry later, wire it inside `lib/observability.ts` so the rest of the app stays unchanged.
 
 ## DialChat Media Flow
 

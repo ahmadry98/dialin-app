@@ -1,3 +1,5 @@
+import { captureException } from "./observability";
+
 export const AI_SHOT_API_BASE_URL = process.env.EXPO_PUBLIC_AI_SHOT_API_URL || "http://localhost:8000";
 
 export type ShotContext = {
@@ -99,6 +101,11 @@ export async function sendAIShotChat(messages: ChatMessage[], shotContext?: Shot
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
+    captureException(new Error(text || `DialChat failed with status ${response.status}`), {
+      feature: "dialchat_api",
+      action: "chat_failed",
+      extra: { status: response.status, endpoint: "/chat" },
+    });
     throw new Error(text || `DialChat failed with status ${response.status}`);
   }
 
@@ -139,6 +146,11 @@ export async function createMediaUploadUrl(params: {
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
+    captureException(new Error(text || `Could not create upload URL: ${response.status}`), {
+      feature: "media_api",
+      action: "create_upload_url_failed",
+      extra: { status: response.status, media_kind: params.media_kind, content_type: params.content_type },
+    });
     throw new Error(text || `Could not create upload URL: ${response.status}`);
   }
 
@@ -161,6 +173,11 @@ export async function uploadFileToMediaUrl(params: {
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
+    captureException(new Error(text || `Media upload failed with status ${response.status}`), {
+      feature: "media_api",
+      action: "upload_failed",
+      extra: { status: response.status, content_type: params.content_type },
+    });
     throw new Error(text || `Media upload failed with status ${response.status}`);
   }
 }
@@ -179,6 +196,11 @@ export async function registerMediaUpload(params: {
 
   if (!response.ok) {
     const text = await response.text().catch(() => "");
+    captureException(new Error(text || `Could not register media: ${response.status}`), {
+      feature: "media_api",
+      action: "register_upload_failed",
+      extra: { status: response.status, media_kind: params.media_kind, storage_mode: params.storage_mode, content_type: params.content_type },
+    });
     throw new Error(text || `Could not register media: ${response.status}`);
   }
 
