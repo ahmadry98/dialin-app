@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
@@ -90,6 +90,17 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
   const isRestoringSessionRef = useRef(false);
   const storageKey = `${CHAT_STORAGE_PREFIX}:${chatSessionKey}`;
 
+  const scrollToLatest = useCallback((animated = true) => {
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollToEnd({ animated });
+    });
+
+    // iOS completes the keyboard resize after keyboardWillShow has fired.
+    setTimeout(() => {
+      scrollRef.current?.scrollToEnd({ animated });
+    }, 220);
+  }, []);
+
   useEffect(() => {
     let isMounted = true;
     hasLoadedSessionRef.current = false;
@@ -145,8 +156,8 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
   }, [hasLoadedSession, machineName, grinderName, usesBuiltInGrinder]);
 
   useEffect(() => {
-    requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
-  }, [messages, isSending]);
+    scrollToLatest();
+  }, [messages, isSending, scrollToLatest]);
 
   useEffect(() => {
     const showEvent = Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
@@ -154,7 +165,7 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
 
     const showSub = Keyboard.addListener(showEvent, (event) => {
       setKeyboardHeight(event.endCoordinates.height);
-      requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }));
+      scrollToLatest();
     });
     const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
 
@@ -162,7 +173,7 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
       showSub.remove();
       hideSub.remove();
     };
-  }, []);
+  }, [scrollToLatest]);
 
   useEffect(() => {
     if (!hasLoadedSession || isRestoringSessionRef.current) return;
@@ -392,6 +403,7 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
           ref={scrollRef}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          onContentSizeChange={() => scrollToLatest(false)}
           contentContainerStyle={{ padding: s(16), paddingBottom: composerHeight + s(24), gap: s(12) }}
         >
           {messages.map((message) => <Bubble key={message.id} message={message} />)}
@@ -457,7 +469,7 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
               placeholderTextColor="#A1A1AA"
               returnKeyType="send"
               onSubmitEditing={() => submitMessage()}
-              onFocus={() => requestAnimationFrame(() => scrollRef.current?.scrollToEnd({ animated: true }))}
+              onFocus={() => scrollToLatest()}
               style={{
                 flex: 1,
                 minHeight: s(48),
