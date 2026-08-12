@@ -23,7 +23,7 @@ function Segmented({
   value: Tab;
   onChange: (t: Tab) => void;
 }) {
-  const items: Array<{ key: Tab; label: string; icon: string }> = [
+  const items: { key: Tab; label: string; icon: string }[] = [
     { key: "daily", label: "Daily", icon: "🧼" },
     { key: "weekly", label: "Weekly", icon: "🧽" },
     { key: "monthly", label: "Monthly", icon: "🧪" },

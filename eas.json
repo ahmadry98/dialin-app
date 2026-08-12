@@ -1,0 +1,33 @@
+{
+  "cli": {
+    "version": ">= 13.0.0",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_AI_SHOT_API_URL": "http://api-dev.dialedin.me",
+        "EXPO_PUBLIC_DIALEDIN_API_URL": "http://api-dev.dialedin.me"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "env": {
+        "EXPO_PUBLIC_AI_SHOT_API_URL": "http://api-dev.dialedin.me",
+        "EXPO_PUBLIC_DIALEDIN_API_URL": "http://api-dev.dialedin.me"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "EXPO_PUBLIC_AI_SHOT_API_URL": "https://api.dialedin.me",
+        "EXPO_PUBLIC_DIALEDIN_API_URL": "https://api.dialedin.me"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
