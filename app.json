@@ -12,7 +12,8 @@
       "supportsTablet": true,
       "bundleIdentifier": "me.dialedin.mobile",
       "infoPlist": {
-        "NSPhotoLibraryUsageDescription": "DialedIn uses your photo library so you can select espresso machine photos, grinder photos, and shot videos for AI shot analysis."
+        "NSPhotoLibraryUsageDescription": "DialedIn uses your photo library so you can select espresso machine photos, grinder photos, and shot videos for AI shot analysis.",
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
@@ -54,6 +55,12 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c7af60be-3730-4cc1-9db6-b04bd7f1c46c"
+      }
     }
   }
 }

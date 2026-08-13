@@ -4,6 +4,7 @@ export const AI_SHOT_API_BASE_URL = process.env.EXPO_PUBLIC_AI_SHOT_API_URL || "
 
 export type ShotContext = {
   user_id?: string;
+  audio_s3_key?: string | null;
   video_s3_key?: string | null;
   machine?: string | null;
   grinder?: string | null;
@@ -113,7 +114,7 @@ export async function sendAIShotChat(messages: ChatMessage[], shotContext?: Shot
 }
 
 
-export type MediaKind = "shot_video" | "machine_photo" | "grinder_photo";
+export type MediaKind = "shot_audio" | "shot_video" | "machine_photo" | "grinder_photo";
 
 export type MediaUploadUrlResponse = {
   media_key: string;
@@ -126,6 +127,7 @@ export type MediaUploadUrlResponse = {
 
 export type MediaRegisterResponse = {
   media_key: string;
+  audio_s3_key?: string | null;
   video_s3_key?: string | null;
   media_kind: MediaKind;
   storage_mode: "local" | "s3";
