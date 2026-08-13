@@ -18,6 +18,7 @@ import * as ImagePicker from "expo-image-picker";
 import { manipulateAsync, SaveFormat } from "expo-image-manipulator";
 import { VideoView, useVideoPlayer } from "expo-video";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { extractShotAudio, supportsAudioExtraction } from "../modules/dialedin-audio-extractor";
 
 import { captureEvent, captureException } from "../lib/observability";
 import { clamp, s } from "../utils/ui";
@@ -263,6 +264,7 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
         extra: {
           has_image: Boolean(userMessage.image_base64),
           image_kind: userMessage.image_kind || null,
+          has_audio_context: Boolean(contextForRequest.audio_s3_key),
           has_video_context: Boolean(contextForRequest.video_s3_key),
           message_count: nextMessages.length,
         },
@@ -340,35 +342,45 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
       return;
     }
 
-    const filename = normalizedVideoFilename(asset);
-    const contentType = normalizedVideoContentType(asset, filename);
+    const videoFilename = normalizedVideoFilename(asset);
+    const videoContentType = normalizedVideoContentType(asset, videoFilename);
+    const audioSupported = supportsAudioExtraction();
+    let attemptedContentType = videoContentType;
 
     setError(null);
-    setActivityLabel("Preparing smaller video...");
+    setActivityLabel(audioSupported ? "Extracting shot audio..." : "Preparing smaller video...");
     setIsSending(true);
     try {
+      const audioUri = await extractShotAudio(asset.uri);
+      const isAudioUpload = Boolean(audioUri);
+      const filename = isAudioUpload ? normalizedAudioFilename(videoFilename) : videoFilename;
+      const contentType = isAudioUpload ? "audio/mp4" : videoContentType;
+      attemptedContentType = contentType;
+      const mediaKind = isAudioUpload ? "shot_audio" : "shot_video";
       const target = await createMediaUploadUrl({
         filename,
         content_type: contentType,
-        media_kind: "shot_video",
+        media_kind: mediaKind,
         user_id: shotContext.user_id || "demo-user",
       });
-      setActivityLabel("Uploading compressed video...");
+      setActivityLabel(isAudioUpload ? "Uploading shot audio..." : "Uploading compressed video...");
       await uploadFileToMediaUrl({
-        file_uri: asset.uri,
+        file_uri: audioUri || asset.uri,
         upload_url: target.upload_url,
         content_type: contentType,
         headers: target.headers,
       });
       const registered = await registerMediaUpload({
         media_key: target.media_key,
-        media_kind: "shot_video",
+        media_kind: mediaKind,
         storage_mode: target.storage_mode,
         content_type: contentType,
       });
 
       setActivityLabel("Analyzing shot audio...");
-      const nextContext = { ...shotContext, video_s3_key: registered.video_s3_key || registered.media_key };
+      const nextContext = isAudioUpload
+        ? { ...shotContext, audio_s3_key: registered.audio_s3_key || registered.media_key, video_s3_key: null }
+        : { ...shotContext, video_s3_key: registered.video_s3_key || registered.media_key };
       setIsSending(false);
       await sendMessage(
         {
@@ -385,7 +397,7 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
       captureException(uploadError, {
         feature: "dialchat",
         action: "upload_or_analyze_video",
-        extra: { content_type: contentType, duration_ms: asset.duration || null },
+        extra: { content_type: attemptedContentType, duration_ms: asset.duration || null },
       });
       const message = uploadError instanceof Error ? uploadError.message : "Could not upload the shot video.";
       setError(cleanErrorMessage(message));
@@ -553,6 +565,10 @@ function initialMessagesForSetup(machineName?: string | null, grinderName?: stri
     ];
   }
   return [INITIAL_MESSAGE];
+}
+
+function normalizedAudioFilename(videoFilename: string): string {
+  return videoFilename.replace(/\.[^\.]+$/, "") + ".m4a";
 }
 
 function inferPhotoKind(context: ShotContext): "machine" | "grinder" {
