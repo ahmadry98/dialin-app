@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, Pressable, ScrollView, Image, ActivityIndicator } from "react-native";
+import { Image as ExpoImage } from "expo-image";
 import { router } from "expo-router";
 import { s, v, clamp } from "../utils/ui";
 
@@ -222,13 +223,15 @@ const machineOfTheDay = useMemo(() => {
                   })}
                 >
                   {machine.image ? (
-                  <Image
+                  <ExpoImage
                     source={{ uri: machine.image }}
                     style={{
                       width: clamp(s(92), 84, 110),
                       height: clamp(s(92), 84, 110),
                     }}
-                    resizeMode="cover"
+                    contentFit="cover"
+                    cachePolicy="memory-disk"
+                    transition={120}
                   />
                 ) : (
                   <View
@@ -414,14 +417,16 @@ const machineOfTheDay = useMemo(() => {
     backgroundColor: "white",
   }}
 >
-  <Image
+  <ExpoImage
     source={{ uri: machineOfTheDay.image }}
     style={{
       width: "100%",
       height: clamp(v(150), 135, 180),
       borderRadius: s(16),
     }}
-    resizeMode="cover"
+    contentFit="cover"
+    cachePolicy="memory-disk"
+    transition={120}
   />
 </View>
 
