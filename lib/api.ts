@@ -396,8 +396,13 @@ function profileHasReviewedImage(profile: EquipmentProfileMachine): boolean {
 }
 
 function reviewedMachineImageUrl(profile: EquipmentProfileMachine): string {
+  const remoteUrl = profile.image_url || profile.image?.url;
+  if (remoteUrl && /^https?:\/\//.test(remoteUrl)) {
+    return remoteUrl;
+  }
+
   const url = `${API_BASE_URL}/machines/${encodeURIComponent(profile.slug)}/image`;
-  const version = profile.image?.media_key || profile.image?.source_url || profile.image_url || profile.image?.url || null;
+  const version = profile.image?.media_key || profile.image?.source_url || remoteUrl || null;
   return version ? `${url}?v=${encodeURIComponent(version)}` : url;
 }
 
