@@ -8,9 +8,9 @@
       "developmentClient": true,
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_AI_SHOT_API_URL": "http://api-dev.dialedin.me",
-        "EXPO_PUBLIC_DIALEDIN_API_URL": "http://api-dev.dialedin.me",
-        "EXPO_PUBLIC_DIALCHAT_API_URL": "http://api-dev.dialedin.me",
+        "EXPO_PUBLIC_AI_SHOT_API_URL": "https://api-dev.dialedin.me",
+        "EXPO_PUBLIC_DIALEDIN_API_URL": "https://api-dev.dialedin.me",
+        "EXPO_PUBLIC_DIALCHAT_API_URL": "https://api-dev.dialedin.me",
         "EXPO_PUBLIC_AUTH_ENABLED": "true",
         "EXPO_PUBLIC_COGNITO_REGION": "us-east-1",
         "EXPO_PUBLIC_COGNITO_APP_CLIENT_ID": "1i1sn8n5sc41v4srou471nm3ea",
@@ -20,9 +20,9 @@
     "preview": {
       "distribution": "internal",
       "env": {
-        "EXPO_PUBLIC_AI_SHOT_API_URL": "http://api-dev.dialedin.me",
-        "EXPO_PUBLIC_DIALEDIN_API_URL": "http://api-dev.dialedin.me",
-        "EXPO_PUBLIC_DIALCHAT_API_URL": "http://api-dev.dialedin.me",
+        "EXPO_PUBLIC_AI_SHOT_API_URL": "https://api-dev.dialedin.me",
+        "EXPO_PUBLIC_DIALEDIN_API_URL": "https://api-dev.dialedin.me",
+        "EXPO_PUBLIC_DIALCHAT_API_URL": "https://api-dev.dialedin.me",
         "EXPO_PUBLIC_AUTH_ENABLED": "true",
         "EXPO_PUBLIC_COGNITO_REGION": "us-east-1",
         "EXPO_PUBLIC_COGNITO_APP_CLIENT_ID": "1i1sn8n5sc41v4srou471nm3ea",
