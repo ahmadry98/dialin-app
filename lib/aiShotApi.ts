@@ -1,4 +1,5 @@
 import { captureException } from "./observability";
+import { authFetch } from "./auth";
 
 export const AI_SHOT_API_BASE_URL = process.env.EXPO_PUBLIC_AI_SHOT_API_URL || "http://localhost:8000";
 
@@ -94,7 +95,7 @@ export type ChatResponse = {
 };
 
 export async function sendAIShotChat(messages: ChatMessage[], shotContext?: ShotContext | null): Promise<ChatResponse> {
-  const response = await fetch(`${AI_SHOT_API_BASE_URL}/chat`, {
+  const response = await authFetch(`${AI_SHOT_API_BASE_URL}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messages, shot_context: shotContext ?? null }),
@@ -140,7 +141,7 @@ export async function createMediaUploadUrl(params: {
   media_kind: MediaKind;
   user_id?: string;
 }): Promise<MediaUploadUrlResponse> {
-  const response = await fetch(`${AI_SHOT_API_BASE_URL}/media/upload-url`, {
+  const response = await authFetch(`${AI_SHOT_API_BASE_URL}/media/upload-url`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...params, user_id: params.user_id || "demo-user" }),
@@ -190,7 +191,7 @@ export async function registerMediaUpload(params: {
   storage_mode: "local" | "s3";
   content_type?: string;
 }): Promise<MediaRegisterResponse> {
-  const response = await fetch(`${AI_SHOT_API_BASE_URL}/media/register`, {
+  const response = await authFetch(`${AI_SHOT_API_BASE_URL}/media/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),

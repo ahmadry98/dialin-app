@@ -10,6 +10,7 @@ import AppHeader from "../components/AppHeader";
 import SideDrawer from "../components/SideDrawer";
 import { DrawerProvider } from "../components/DrawerContext";
 import { SearchProvider } from "../components/SearchContext";
+import { AuthProvider } from "../lib/auth";
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
@@ -23,6 +24,7 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+        <AuthProvider>
         <SearchProvider>
           <DrawerProvider>
             <AppHeader />
@@ -37,11 +39,15 @@ export default function RootLayout() {
               <Stack.Screen name="cleaning" />
               <Stack.Screen name="contact" />
               <Stack.Screen name="about" />
+              <Stack.Screen name="auth" />
+              <Stack.Screen name="account" />
+              <Stack.Screen name="upgrade" />
             </Stack>
 
             <SideDrawer />
           </DrawerProvider>
         </SearchProvider>
+        </AuthProvider>
 
         <StatusBar style="auto" />
       </ThemeProvider>

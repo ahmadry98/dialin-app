@@ -7,12 +7,14 @@ import { clamp, s, screen } from "../utils/ui";
 import { getPreferredMachineId, getLastRoast } from "../utils/storage";
 import { MACHINES } from "../data/machines";
 import { Ionicons } from "@expo/vector-icons";
+import { AUTH_ENABLED, useAuth } from "../lib/auth";
 
 const DRAWER_WIDTH = clamp(screen.W * 0.72, 280, 380);
 
 export default function SideDrawer() {
   const { isOpen, close } = useDrawer();
   const insets = useSafeAreaInsets();
+  const auth = useAuth();
 
   const [preferredId, setPreferredId] = useState<string | null>(null);
   const [lastRoast, setLastRoast] = useState<string | null>(null);
@@ -298,6 +300,14 @@ export default function SideDrawer() {
           label="AI Shot Analysis"
           onPress={goToAIShotAnalysis}
         />
+
+        {AUTH_ENABLED ? (
+          <MenuItem
+            icon={auth.session ? "person-circle-outline" : "log-in-outline"}
+            label={auth.session ? "Account" : "Sign in"}
+            onPress={() => go(auth.session ? "/account" : "/auth")}
+          />
+        ) : null}
 
         <View style={{ flex: 1 }} />
 
