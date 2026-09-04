@@ -70,7 +70,7 @@ export default function UpgradeScreen() {
         <View style={{ marginTop: s(30), borderTopWidth: 1, borderColor: "#D1D5DB", paddingTop: s(22) }}>
           {loading ? <ActivityIndicator /> : (
             <>
-              <Text style={{ textAlign: "center", fontFamily: "Nunito_700Bold", fontSize: 22, color: "#111827" }}>{offer?.product.priceString || "$19.99"} <Text style={{ fontSize: 15, color: "#6B7280" }}>/ year</Text></Text>
+              {offer ? <Text style={{ textAlign: "center", fontFamily: "Nunito_700Bold", fontSize: 22, color: "#111827" }}>{offer.product.priceString} <Text style={{ fontSize: 15, color: "#6B7280" }}>/ year</Text></Text> : null}
               {error ? <Text style={{ marginTop: s(10), textAlign: "center", color: "#B42318" }}>{error}</Text> : null}
               <Pressable disabled={!offer || buying} onPress={buy} style={{ marginTop: s(20), height: s(54), borderRadius: s(8), backgroundColor: "#0B0B0F", alignItems: "center", justifyContent: "center", opacity: !offer || buying ? 0.5 : 1 }}>
                 {buying ? <ActivityIndicator color="white" /> : <Text style={{ color: "white", fontFamily: "Nunito_700Bold", fontSize: 16 }}>Start Pro</Text>}
