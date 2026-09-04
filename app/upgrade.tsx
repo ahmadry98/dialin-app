@@ -62,7 +62,7 @@ export default function UpgradeScreen() {
         <Text style={{ marginTop: s(8), color: "#4B5563", fontSize: 16, lineHeight: 23 }}>Keep dialing in without the free monthly limit.</Text>
 
         <View style={{ marginTop: s(26), gap: s(16) }}>
-          <Benefit icon="analytics-outline" text="Up to 100 shot analyses each month" />
+          <Benefit icon="analytics-outline" text="Up to 20 shot analyses each month" />
           <Benefit icon="time-outline" text="Keep your shot history and recommendations together" />
           <Benefit icon="refresh-outline" text="Restore access on any device using your account" />
         </View>
