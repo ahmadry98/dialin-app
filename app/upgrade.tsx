@@ -18,7 +18,7 @@ export default function UpgradeScreen() {
     fetchAccountStatus()
       .then((account) => loadProPackage(account.user_id))
       .then(setOffer)
-      .catch((value) => setError(value instanceof Error ? value.message : "Could not load Pro."))
+      .catch(() => setError("Pro is temporarily unavailable. Please try again shortly."))
       .finally(() => setLoading(false));
   }, []);
 
