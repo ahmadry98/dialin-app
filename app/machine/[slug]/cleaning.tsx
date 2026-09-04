@@ -90,6 +90,10 @@ function VideoCard({
   );
 }
 
+function youtubeSearchUrl(query: string) {
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+}
+
 export default function CleaningScreen() {
   const { slug } = useLocalSearchParams<{ slug: string }>();
   const [machine, setMachine] = useState<Machine | null>(null);
@@ -114,27 +118,31 @@ export default function CleaningScreen() {
   }, [slug]);
 
   const cleaningVideos = useMemo(
-    () => [
-      {
-        id: "daily-clean",
-        title: "Daily cleaning routine",
-        desc: "Quick rinse, wipe, and steam wand cleanup after every session.",
-        url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
-      },
-      {
-        id: "backflush",
-        title: "How to backflush your machine",
-        desc: "Step-by-step detergent and water backflush routine.",
-        url: "https://www.youtube.com/watch?v=ysz5S6PUM-U",
-      },
-      {
-        id: "deep-clean",
-        title: "Monthly deep clean",
-        desc: "Group head, basket, steam wand, and drip tray cleaning walkthrough.",
-        url: "https://www.youtube.com/watch?v=jNQXAC9IVRw",
-      },
-    ],
-    []
+    () => {
+      const machineName = machine?.name || slug || "espresso machine";
+
+      return [
+        {
+          id: "daily-clean",
+          title: "Cleaning videos",
+          desc: `Search YouTube for ${machineName} cleaning guides.`,
+          url: youtubeSearchUrl(`${machineName} cleaning`),
+        },
+        {
+          id: "backflush",
+          title: "Backflush videos",
+          desc: `Search for backflush instructions specific to ${machineName}.`,
+          url: youtubeSearchUrl(`${machineName} backflush cleaning`),
+        },
+        {
+          id: "deep-clean",
+          title: "Deep-clean videos",
+          desc: `Search for detailed ${machineName} maintenance walkthroughs.`,
+          url: youtubeSearchUrl(`${machineName} deep cleaning`),
+        },
+      ];
+    },
+    [machine?.name, slug]
   );
 
   if (loading) {
