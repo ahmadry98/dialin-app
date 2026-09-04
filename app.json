@@ -9,7 +9,7 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true,
+      "supportsTablet": false,
       "bundleIdentifier": "me.dialedin.mobile",
       "infoPlist": {
         "NSPhotoLibraryUsageDescription": "DialedIn uses your photo library so you can select espresso machine photos, grinder photos, and shot videos for AI shot analysis.",
