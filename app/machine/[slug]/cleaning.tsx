@@ -186,7 +186,9 @@ export default function CleaningScreen() {
 
   return (
     <ScrollView
+      style={{ flex: 1, backgroundColor: "#F6F6F8" }}
       contentContainerStyle={{
+        flexGrow: 1,
         paddingHorizontal: s(20),
         paddingTop: clamp(v(20), s(16), s(26)),
         paddingBottom: s(40),
