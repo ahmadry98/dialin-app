@@ -1,15 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
-import type { PurchasesPackage } from "react-native-purchases";
+import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from "react-native";
 
 import { fetchAccountStatus } from "../lib/accountApi";
-import { loadProPackage, purchasePro, restorePro } from "../lib/subscriptions";
+import { loadProPackage, purchasePro, restorePro, type ProPurchaseOption } from "../lib/subscriptions";
 import { clamp, s } from "../utils/ui";
 
+const PRIVACY_URL = "https://dialedin.me/privacy";
+const TERMS_URL = "https://dialedin.me/terms";
+
 export default function UpgradeScreen() {
-  const [offer, setOffer] = useState<PurchasesPackage | null>(null);
+  const [offer, setOffer] = useState<ProPurchaseOption | null>(null);
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState(false);
   const [error, setError] = useState("");
@@ -70,13 +72,17 @@ export default function UpgradeScreen() {
         <View style={{ marginTop: s(30), borderTopWidth: 1, borderColor: "#D1D5DB", paddingTop: s(22) }}>
           {loading ? <ActivityIndicator /> : (
             <>
-              {offer ? <Text style={{ textAlign: "center", fontFamily: "Nunito_700Bold", fontSize: 22, color: "#111827" }}>{offer.product.priceString} <Text style={{ fontSize: 15, color: "#6B7280" }}>/ year</Text></Text> : null}
+              {offer ? <Text style={{ textAlign: "center", fontFamily: "Nunito_700Bold", fontSize: 22, color: "#111827" }}>{offer.priceString} <Text style={{ fontSize: 15, color: "#6B7280" }}>/ year</Text></Text> : null}
               {error ? <Text style={{ marginTop: s(10), textAlign: "center", color: "#B42318" }}>{error}</Text> : null}
               <Pressable disabled={!offer || buying} onPress={buy} style={{ marginTop: s(20), height: s(54), borderRadius: s(8), backgroundColor: "#0B0B0F", alignItems: "center", justifyContent: "center", opacity: !offer || buying ? 0.5 : 1 }}>
                 {buying ? <ActivityIndicator color="white" /> : <Text style={{ color: "white", fontFamily: "Nunito_700Bold", fontSize: 16 }}>Start Pro</Text>}
               </Pressable>
               <Pressable disabled={buying} onPress={restore} style={{ paddingVertical: s(18), alignItems: "center" }}><Text style={{ color: "#374151", fontWeight: "800" }}>Restore purchases</Text></Pressable>
               <Text style={{ color: "#6B7280", fontSize: 12, lineHeight: 17, textAlign: "center" }}>Payment is charged to your App Store account. The subscription renews annually unless canceled in your App Store settings.</Text>
+              <View style={{ marginTop: s(14), flexDirection: "row", justifyContent: "center", gap: s(22) }}>
+                <Pressable onPress={() => Linking.openURL(TERMS_URL)} accessibilityRole="link"><Text style={{ color: "#374151", fontSize: 13, fontWeight: "700", textDecorationLine: "underline" }}>Terms of Use</Text></Pressable>
+                <Pressable onPress={() => Linking.openURL(PRIVACY_URL)} accessibilityRole="link"><Text style={{ color: "#374151", fontSize: 13, fontWeight: "700", textDecorationLine: "underline" }}>Privacy Policy</Text></Pressable>
+              </View>
             </>
           )}
         </View>
