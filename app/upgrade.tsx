@@ -1,10 +1,11 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from "react-native";
 
 import { fetchAccountStatus } from "../lib/accountApi";
-import { loadProPackage, purchasePro, restorePro, type ProPurchaseOption } from "../lib/subscriptions";
+import { captureException } from "../lib/observability";
+import { loadProPackage, purchasePro, restorePro, SubscriptionLoadError, type ProPurchaseOption } from "../lib/subscriptions";
 import { clamp, s } from "../utils/ui";
 
 const PRIVACY_URL = "https://dialedin.me/privacy";
@@ -14,15 +15,30 @@ export default function UpgradeScreen() {
   const [offer, setOffer] = useState<ProPurchaseOption | null>(null);
   const [loading, setLoading] = useState(true);
   const [buying, setBuying] = useState(false);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<{ message: string; code: string } | null>(null);
+
+  const loadOffer = useCallback(async () => {
+    setLoading(true);
+    setOffer(null);
+    setError(null);
+    try {
+      const account = await fetchAccountStatus();
+      setOffer(await loadProPackage(account.user_id));
+    } catch (value) {
+      captureException(value, { feature: "upgrade", action: "load_offer" });
+      if (value instanceof SubscriptionLoadError) {
+        setError({ message: value.message, code: value.code });
+      } else {
+        setError({ message: "Your DialedIn account could not be loaded. Sign in again and retry.", code: "A1" });
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    fetchAccountStatus()
-      .then((account) => loadProPackage(account.user_id))
-      .then(setOffer)
-      .catch(() => setError("Pro is temporarily unavailable. Please try again shortly."))
-      .finally(() => setLoading(false));
-  }, []);
+    void loadOffer();
+  }, [loadOffer]);
 
   const buy = async () => {
     if (!offer) return;
@@ -73,7 +89,14 @@ export default function UpgradeScreen() {
           {loading ? <ActivityIndicator /> : (
             <>
               {offer ? <Text style={{ textAlign: "center", fontFamily: "Nunito_700Bold", fontSize: 22, color: "#111827" }}>{offer.priceString} <Text style={{ fontSize: 15, color: "#6B7280" }}>/ year</Text></Text> : null}
-              {error ? <Text style={{ marginTop: s(10), textAlign: "center", color: "#B42318" }}>{error}</Text> : null}
+              {error ? (
+                <View style={{ marginTop: s(10), alignItems: "center" }}>
+                  <Text style={{ textAlign: "center", color: "#B42318" }}>{error.message} ({error.code})</Text>
+                  <Pressable onPress={() => void loadOffer()} style={{ marginTop: s(10), paddingHorizontal: s(16), paddingVertical: s(9), borderWidth: 1, borderColor: "#D1D5DB", borderRadius: s(8), backgroundColor: "white" }}>
+                    <Text style={{ color: "#111827", fontWeight: "800" }}>Try again</Text>
+                  </Pressable>
+                </View>
+              ) : null}
               <Pressable disabled={!offer || buying} onPress={buy} style={{ marginTop: s(20), height: s(54), borderRadius: s(8), backgroundColor: "#0B0B0F", alignItems: "center", justifyContent: "center", opacity: !offer || buying ? 0.5 : 1 }}>
                 {buying ? <ActivityIndicator color="white" /> : <Text style={{ color: "white", fontFamily: "Nunito_700Bold", fontSize: 16 }}>Start Pro</Text>}
               </Pressable>
