@@ -24,6 +24,32 @@ export class SubscriptionLoadError extends Error {
   }
 }
 
+type PurchasesFailure = {
+  code?: string | number;
+  message?: string;
+  underlyingErrorMessage?: string;
+  userInfo?: {
+    readableErrorCode?: string;
+  };
+};
+
+function purchasesFailure(error: unknown): PurchasesFailure {
+  return typeof error === "object" && error !== null ? (error as PurchasesFailure) : {};
+}
+
+function capturePurchasesException(error: unknown, action: string) {
+  const failure = purchasesFailure(error);
+  captureException(error, {
+    feature: "subscriptions",
+    action,
+    extra: {
+      purchases_code: failure.code,
+      readable_code: failure.userInfo?.readableErrorCode,
+      underlying_error: failure.underlyingErrorMessage,
+    },
+  });
+}
+
 function apiKey() {
   return Platform.select({
     ios: process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY,
@@ -45,19 +71,20 @@ export async function loadProPackage(userId: string): Promise<ProPurchaseOption>
       configuredFor = userId;
     }
   } catch (error) {
-    captureException(error, { feature: "subscriptions", action: "configure" });
+    capturePurchasesException(error, "configure");
     throw new SubscriptionLoadError("The subscription service could not be started.", "S2");
   }
 
-  let offerings;
+  let offerings: Awaited<ReturnType<typeof Purchases.getOfferings>> | null = null;
+  let offeringsError: unknown = null;
   try {
     offerings = await Purchases.getOfferings();
   } catch (error) {
-    captureException(error, { feature: "subscriptions", action: "get_offerings" });
-    throw new SubscriptionLoadError("The subscription service could not be reached.", "S2");
+    offeringsError = error;
+    capturePurchasesException(error, "get_offerings");
   }
 
-  const annual = offerings.current?.annual || offerings.current?.availablePackages.find((item) => item.packageType === "ANNUAL");
+  const annual = offerings?.current?.annual || offerings?.current?.availablePackages.find((item) => item.packageType === "ANNUAL");
   if (annual) {
     captureEvent("subscriptions.product_loaded", { source: "offering", product_id: annual.product.identifier });
     return {
@@ -73,8 +100,13 @@ export async function loadProPackage(userId: string): Promise<ProPurchaseOption>
   try {
     products = await Purchases.getProducts([ANNUAL_PRODUCT_ID]);
   } catch (error) {
-    captureException(error, { feature: "subscriptions", action: "get_products" });
-    throw new SubscriptionLoadError("Apple could not load the subscription information.", "S2");
+    capturePurchasesException(error, "get_products");
+    const failure = purchasesFailure(error);
+    const errorCode = String(failure.code ?? "");
+    if (offeringsError && ["2", "5", "23", "32"].includes(errorCode)) {
+      throw new SubscriptionLoadError("Apple has not returned the Pro subscription for this storefront.", "S3");
+    }
+    throw new SubscriptionLoadError("The subscription service could not be reached.", "S2");
   }
 
   const product = products.find((item) => item.identifier === ANNUAL_PRODUCT_ID);
@@ -83,7 +115,8 @@ export async function loadProPackage(userId: string): Promise<ProPurchaseOption>
     captureEvent("subscriptions.product_unavailable", {
       product_id: ANNUAL_PRODUCT_ID,
       storefront: storefront?.countryCode,
-      offering_count: Object.keys(offerings.all).length,
+      offering_count: offerings ? Object.keys(offerings.all).length : 0,
+      offerings_error_code: purchasesFailure(offeringsError).code,
     });
     throw new SubscriptionLoadError("Apple has not returned the Pro subscription for this storefront.", "S3");
   }
