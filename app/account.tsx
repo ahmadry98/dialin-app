@@ -5,12 +5,14 @@ import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
 
 import { deleteAccountData, fetchAccountStatus, type AccountStatus } from "../lib/accountApi";
 import { AUTH_ENABLED, useAuth } from "../lib/auth";
+import { restorePro } from "../lib/subscriptions";
 import { clamp, s } from "../utils/ui";
 
 export default function AccountScreen() {
   const auth = useAuth();
   const [account, setAccount] = useState<AccountStatus | null>(null);
   const [error, setError] = useState("");
+  const [restoring, setRestoring] = useState(false);
 
   useEffect(() => {
     if (AUTH_ENABLED && !auth.loading && !auth.session) {
@@ -27,6 +29,26 @@ export default function AccountScreen() {
   }
 
   const usage = account?.usage;
+  const restorePurchases = async () => {
+    if (!account) return;
+    setRestoring(true);
+    try {
+      const active = await restorePro(account.user_id);
+      Alert.alert(
+        active ? "Pro restored" : "No subscription found",
+        active ? "Your Pro subscription is active." : "No active Pro purchase was found for this App Store account.",
+      );
+      if (active) {
+        const refreshed = await fetchAccountStatus();
+        setAccount(refreshed);
+      }
+    } catch (value) {
+      Alert.alert("Could not restore", value instanceof Error ? value.message : "Please try again.");
+    } finally {
+      setRestoring(false);
+    }
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: "#F6F6F8", padding: s(22) }}>
       <Text style={{ marginTop: s(20), fontFamily: "Nunito_700Bold", fontSize: clamp(s(30), 26, 34), color: "#111827" }}>Account</Text>
@@ -51,7 +73,15 @@ export default function AccountScreen() {
 
       {error ? <Text style={{ marginTop: s(16), color: "#B42318" }}>{error}</Text> : null}
 
-      <Pressable onPress={async () => { await auth.signOut(); router.replace("/" as never); }} style={{ marginTop: s(18), height: s(48), borderWidth: 1, borderColor: "#D1D5DB", borderRadius: s(8), alignItems: "center", justifyContent: "center" }}>
+      <Pressable
+        disabled={restoring || !account}
+        onPress={restorePurchases}
+        style={{ marginTop: s(18), height: s(48), borderWidth: 1, borderColor: "#D1D5DB", borderRadius: s(8), alignItems: "center", justifyContent: "center", opacity: restoring ? 0.65 : 1 }}
+      >
+        {restoring ? <ActivityIndicator /> : <Text style={{ color: "#111827", fontWeight: "800" }}>Restore purchases</Text>}
+      </Pressable>
+
+      <Pressable onPress={async () => { await auth.signOut(); router.replace("/" as never); }} style={{ marginTop: s(12), height: s(48), borderWidth: 1, borderColor: "#D1D5DB", borderRadius: s(8), alignItems: "center", justifyContent: "center" }}>
         <Text style={{ color: "#111827", fontWeight: "800" }}>Sign out</Text>
       </Pressable>
 
@@ -83,4 +113,3 @@ export default function AccountScreen() {
     </View>
   );
 }
-

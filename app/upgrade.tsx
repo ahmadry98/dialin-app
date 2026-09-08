@@ -58,7 +58,8 @@ export default function UpgradeScreen() {
   const restore = async () => {
     setBuying(true);
     try {
-      const active = await restorePro();
+      const account = await fetchAccountStatus();
+      const active = await restorePro(account.user_id);
       Alert.alert(active ? "Pro restored" : "No subscription found", active ? "Your Pro access is active." : "We could not find an active Pro purchase.");
       if (active) router.replace("/account" as never);
     } catch (value) {

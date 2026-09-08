@@ -57,7 +57,7 @@ export default function AppHeader() {
 
         <View style={{ flexDirection: "row", alignItems: "center" }}>
           <Image
-            source={require("../assets/images/Logo.png")}
+            source={require("../assets/images/logo.png")}
             style={{
               width: 40,
               height: 40,

@@ -58,7 +58,7 @@ function apiKey() {
   });
 }
 
-export async function loadProPackage(userId: string): Promise<ProPurchaseOption> {
+async function ensurePurchasesConfigured(userId: string): Promise<void> {
   const key = apiKey();
   if (!key) throw new SubscriptionLoadError("Subscriptions are not configured in this build.", "S1");
 
@@ -74,6 +74,10 @@ export async function loadProPackage(userId: string): Promise<ProPurchaseOption>
     capturePurchasesException(error, "configure");
     throw new SubscriptionLoadError("The subscription service could not be started.", "S2");
   }
+}
+
+export async function loadProPackage(userId: string): Promise<ProPurchaseOption> {
+  await ensurePurchasesConfigured(userId);
 
   let offerings: Awaited<ReturnType<typeof Purchases.getOfferings>> | null = null;
   let offeringsError: unknown = null;
@@ -135,7 +139,8 @@ export async function purchasePro(item: ProPurchaseOption): Promise<boolean> {
   return item.purchase();
 }
 
-export async function restorePro(): Promise<boolean> {
+export async function restorePro(userId: string): Promise<boolean> {
+  await ensurePurchasesConfigured(userId);
   const customerInfo = await Purchases.restorePurchases();
   return Boolean(customerInfo.entitlements.active[ENTITLEMENT_ID]);
 }
