@@ -352,7 +352,7 @@ const LOCAL_PROFILE_IMAGES: Record<string, LocalMachine["image"]> = {
   "machine-delonghi-dedica": require("../assets/images/machines/images-2.jpeg"),
   "machine-lelit-anna": require("../assets/images/machines/Lelit-Anna-Feature.jpg"),
   "machine-la-marzocco-linea-micra": require("../assets/images/machines/WEB_LPMCBS02EU_S01_1800x1800.jpg"),
-  "machine-breville-dual-boiler": require("../assets/images/machines/Breville-Oracle-Dual-Boiler-Feature.jpg"),
+  "machine-breville-oracle-dual-boiler": require("../assets/images/machines/Breville-Oracle-Dual-Boiler-Feature.jpg"),
   "machine-profitec-go": require("../assets/images/machines/Profitec-Go-On-Bar-3.jpg"),
   "machine-profitec-pro-400": require("../assets/images/machines/pro-400-slider-webcopy.jpg"),
   "machine-profitec-pro-300": require("../assets/images/machines/Profitec_PRO300_Lifestyle_1_1024x1024.png.webp"),
@@ -420,6 +420,10 @@ function sortMachines(machines: Machine[]): Machine[] {
   return [...machines].sort((a, b) => a.name.localeCompare(b.name));
 }
 
+function localMachineHasBuiltInGrinder(machine: LocalMachine): boolean {
+  return machine.id === "breville-barista-express";
+}
+
 function normalizeLocalMachine(machine: LocalMachine): Machine {
   const imageUri = localImageUri(machine.image);
   return {
@@ -444,7 +448,7 @@ function normalizeLocalMachine(machine: LocalMachine): Machine {
     target_total_shot_seconds: typeof machine.baseline.seconds === "number" ? [machine.baseline.seconds - 2, machine.baseline.seconds + 2] : undefined,
     target_visible_flow_seconds: undefined,
     portafilter_mm: machine.name.toLowerCase().includes("breville") ? 54 : 58,
-    has_built_in_grinder: machine.name.toLowerCase().includes("breville"),
+    has_built_in_grinder: localMachineHasBuiltInGrinder(machine),
     has_preinfusion: undefined,
   };
 }
@@ -452,7 +456,7 @@ function normalizeLocalMachine(machine: LocalMachine): Machine {
 function localDescription(machine: LocalMachine): string {
   const name = machine.name;
   const seconds = machine.baseline.seconds;
-  if (name.toLowerCase().includes("breville")) {
+  if (localMachineHasBuiltInGrinder(machine)) {
     return `${name} is an all-in-one starter machine with an integrated grinder and a practical ${seconds}s baseline.`;
   }
   if (name.toLowerCase().includes("silvia")) {
@@ -466,7 +470,7 @@ function localDescription(machine: LocalMachine): string {
 
 function localMachineType(machine: LocalMachine): string {
   const name = machine.name.toLowerCase();
-  if (name.includes("breville")) return "All-in-one";
+  if (localMachineHasBuiltInGrinder(machine)) return "All-in-one";
   if (name.includes("silvia")) return "Single boiler";
   if (name.includes("gaggia")) return "Classic";
   return "Home espresso";
@@ -474,7 +478,7 @@ function localMachineType(machine: LocalMachine): string {
 
 function getLocalTags(machine: LocalMachine): string[] {
   const name = machine.name.toLowerCase();
-  if (name.includes("breville")) return ["Built-in grinder", "54mm"];
+  if (localMachineHasBuiltInGrinder(machine)) return ["Built-in grinder", "54mm"];
   if (name.includes("silvia")) return ["58mm", "External grinder"];
   if (name.includes("gaggia")) return ["58mm", "Classic"];
   return ["Espresso"];
