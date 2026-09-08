@@ -106,6 +106,7 @@ const machineOfTheDay = useMemo(() => {
   return (
     <ScrollView
       ref={pageScrollRef}
+      style={{ flex: 1, backgroundColor: "#F6F6F8" }}
       showsVerticalScrollIndicator={false}
       keyboardShouldPersistTaps="handled"
       contentContainerStyle={{

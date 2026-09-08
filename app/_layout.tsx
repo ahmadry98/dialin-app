@@ -1,9 +1,8 @@
-import { DarkTheme, DefaultTheme, ThemeProvider } from "@react-navigation/native";
+import { DefaultTheme, ThemeProvider } from "@react-navigation/native";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import "react-native-reanimated";
 import { SafeAreaProvider } from "react-native-safe-area-context";
-import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useFonts, Nunito_700Bold } from "@expo-google-fonts/nunito";
 
 import AppHeader from "../components/AppHeader";
@@ -12,9 +11,16 @@ import { DrawerProvider } from "../components/DrawerContext";
 import { SearchProvider } from "../components/SearchContext";
 import { AuthProvider } from "../lib/auth";
 
-export default function RootLayout() {
-  const colorScheme = useColorScheme();
+const appTheme = {
+  ...DefaultTheme,
+  colors: {
+    ...DefaultTheme.colors,
+    background: "#F6F6F8",
+    card: "#FFFFFF",
+  },
+};
 
+export default function RootLayout() {
   const [fontsLoaded] = useFonts({
     Nunito_700Bold,
   });
@@ -23,7 +29,7 @@ export default function RootLayout() {
 
   return (
     <SafeAreaProvider>
-      <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
+      <ThemeProvider value={appTheme}>
         <AuthProvider>
         <SearchProvider>
           <DrawerProvider>
@@ -33,6 +39,7 @@ export default function RootLayout() {
               screenOptions={{
                 headerShown: false,
                 gestureEnabled: false,
+                contentStyle: { backgroundColor: "#F6F6F8" },
               }}
             >
               <Stack.Screen name="index" />
@@ -54,7 +61,7 @@ export default function RootLayout() {
         </SearchProvider>
         </AuthProvider>
 
-        <StatusBar style="auto" />
+        <StatusBar style="dark" />
       </ThemeProvider>
     </SafeAreaProvider>
   );
