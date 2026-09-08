@@ -29,7 +29,12 @@ export default function RootLayout() {
           <DrawerProvider>
             <AppHeader />
 
-            <Stack screenOptions={{ headerShown: false }}>
+            <Stack
+              screenOptions={{
+                headerShown: false,
+                gestureEnabled: false,
+              }}
+            >
               <Stack.Screen name="index" />
               <Stack.Screen name="select-machine" />
               <Stack.Screen name="select-grinder" />
