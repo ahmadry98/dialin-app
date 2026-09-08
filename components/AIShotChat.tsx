@@ -56,7 +56,7 @@ type StoredChatSession = {
   analysis: AnalyzeShotResponse | null;
 };
 
-const CHAT_STORAGE_PREFIX = "dialchat-session-v2";
+const CHAT_STORAGE_PREFIX = "dialchat-session-v3";
 const MAX_SHOT_VIDEO_SECONDS = 80;
 const MAX_SHOT_VIDEO_MS = MAX_SHOT_VIDEO_SECONDS * 1000;
 const MAX_RECOGNITION_IMAGE_SIDE = 1200;
@@ -551,7 +551,7 @@ function initialMessagesForSetup(machineName?: string | null, grinderName?: stri
       {
         id: "assistant-start-with-equipment",
         role: "assistant",
-        content: `I have ${machineName} and ${usesBuiltInGrinder ? "its built-in grinder" : selectedGrinder} selected. What grind setting are you using?`,
+        content: `I have ${machineName} and ${usesBuiltInGrinder ? "its built-in grinder" : selectedGrinder} selected. What dose did you use? For example: 17g or 18g in the basket. If you do not know, say idk.`,
       },
     ];
   }
