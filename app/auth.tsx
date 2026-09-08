@@ -76,7 +76,17 @@ export default function AuthScreen() {
 
   return (
     <KeyboardAvoidingView style={{ flex: 1, backgroundColor: "#F6F6F8" }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
-      <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={{ flexGrow: 1, padding: s(22), justifyContent: "center" }}>
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode={Platform.OS === "ios" ? "interactive" : "on-drag"}
+        contentContainerStyle={{
+          flexGrow: 1,
+          paddingHorizontal: s(22),
+          paddingTop: s(72),
+          paddingBottom: s(28),
+          justifyContent: "flex-start",
+        }}
+      >
         <Pressable onPress={() => router.back()} accessibilityLabel="Close account screen" style={{ position: "absolute", top: s(18), right: s(20), width: s(42), height: s(42), borderRadius: 21, backgroundColor: "white", alignItems: "center", justifyContent: "center" }}>
           <Ionicons name="close" size={22} color="#111827" />
         </Pressable>
@@ -126,4 +136,3 @@ function Field(props: React.ComponentProps<typeof TextInput> & { label: string }
     </View>
   );
 }
-

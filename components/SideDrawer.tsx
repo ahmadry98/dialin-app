@@ -125,7 +125,7 @@ export default function SideDrawer() {
         >
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <Image
-              source={require("../assets/images/Logo.png")}
+              source={require("../assets/images/logo.png")}
               style={{
                 width: s(40),
                 height: s(40),
