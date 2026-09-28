@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, Pressable, ScrollView, Image, ActivityIndicator } from "react-native";
 import { Image as ExpoImage } from "expo-image";
 import { router } from "expo-router";
@@ -51,6 +51,7 @@ function PrimaryButton({ label, onPress }: { label: string; onPress: () => void 
 
 export default function Home() {
   const { isSearchOpen, query } = useSearch();
+  const pageScrollRef = useRef<ScrollView>(null);
 
   //const [lastMachine, setLastMachine] = useState<any | null>(null);
   const [lastMachine, setLastMachine] = useState<Machine | null>(null);
@@ -88,6 +89,12 @@ export default function Home() {
   })();
 }, []);
 
+useEffect(() => {
+  if (isSearchOpen) {
+    pageScrollRef.current?.scrollTo({ y: 0, animated: true });
+  }
+}, [isSearchOpen]);
+
 const filteredMachines = machines.filter((m) =>
   m.name.toLowerCase().includes(query.trim().toLowerCase())
 );
@@ -98,7 +105,10 @@ const machineOfTheDay = useMemo(() => {
 
   return (
     <ScrollView
+      ref={pageScrollRef}
+      style={{ flex: 1, backgroundColor: "#F6F6F8" }}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="handled"
       contentContainerStyle={{
         paddingHorizontal: P,
         paddingTop: clamp(v(32), s(26), s(40)),
@@ -107,6 +117,7 @@ const machineOfTheDay = useMemo(() => {
       }}
     >
       {/* HERO CARD */}
+      {!isSearchOpen ? (
       <View
         style={{
           borderRadius: s(22),
@@ -168,6 +179,7 @@ const machineOfTheDay = useMemo(() => {
           </View>
         </View>
       </View>
+      ) : null}
 
       {/* SEARCH RESULTS */}
       {isSearchOpen && (
@@ -202,6 +214,29 @@ const machineOfTheDay = useMemo(() => {
                 }}
               >
                 Try searching for Gaggia, Silvia, Breville, or any machine name.
+              </Text>
+            </View>
+          ) : loadingMachines ? (
+            <View
+              style={{
+                borderRadius: s(20),
+                padding: s(18),
+                backgroundColor: "white",
+                borderWidth: 1,
+                borderColor: "rgba(0,0,0,0.06)",
+                alignItems: "center",
+                ...shadowCard(),
+              }}
+            >
+              <ActivityIndicator />
+              <Text
+                style={{
+                  marginTop: s(8),
+                  color: "#6B7280",
+                  fontSize: clamp(s(13.5), 12.5, 15),
+                }}
+              >
+                Searching machines...
               </Text>
             </View>
           ) : filteredMachines.length > 0 ? (
@@ -302,7 +337,7 @@ const machineOfTheDay = useMemo(() => {
                   color: "#0B0B0F",
                 }}
               >
-                No machines found
+                No search results
               </Text>
 
               <Text
@@ -313,7 +348,7 @@ const machineOfTheDay = useMemo(() => {
                   lineHeight: clamp(s(18), 16, 20),
                 }}
               >
-                We couldn’t find “{query.trim()}”. You can add machine suggestions later.
+                We couldn’t find a machine matching “{query.trim()}”. Try another brand or model.
               </Text>
             </View>
           )}

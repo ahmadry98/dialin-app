@@ -1,5 +1,12 @@
-import React, { useEffect, useRef, useState } from "react";
-import { Animated, Pressable, Text, View, Image } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Animated,
+  Image,
+  PanResponder,
+  Pressable,
+  Text,
+  View,
+} from "react-native";
 import { router } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useDrawer } from "./DrawerContext";
@@ -7,18 +14,37 @@ import { clamp, s, screen } from "../utils/ui";
 import { getPreferredMachineId, getLastRoast } from "../utils/storage";
 import { MACHINES } from "../data/machines";
 import { Ionicons } from "@expo/vector-icons";
+import { AUTH_ENABLED, useAuth } from "../lib/auth";
 
 const DRAWER_WIDTH = clamp(screen.W * 0.72, 280, 380);
+const EDGE_SWIPE_WIDTH = 24;
+const OPEN_SWIPE_DISTANCE = 48;
 
 export default function SideDrawer() {
-  const { isOpen, close } = useDrawer();
+  const { isOpen, open, close } = useDrawer();
   const insets = useSafeAreaInsets();
+  const auth = useAuth();
 
   const [preferredId, setPreferredId] = useState<string | null>(null);
   const [lastRoast, setLastRoast] = useState<string | null>(null);
 
   const translateX = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
   const backdropOpacity = useRef(new Animated.Value(0)).current;
+  const edgeSwipeResponder = useMemo(
+    () =>
+      PanResponder.create({
+        onMoveShouldSetPanResponder: (_, gesture) =>
+          gesture.dx > 8 &&
+          Math.abs(gesture.dx) > Math.abs(gesture.dy) * 1.25,
+        onPanResponderRelease: (_, gesture) => {
+          if (gesture.dx >= OPEN_SWIPE_DISTANCE || gesture.vx >= 0.65) {
+            open();
+          }
+        },
+        onPanResponderTerminationRequest: () => false,
+      }),
+    [open]
+  );
 
   useEffect(() => {
     Animated.parallel([
@@ -76,16 +102,34 @@ export default function SideDrawer() {
   const preferredMachine = preferredId ? MACHINES[preferredId] : null;
 
   return (
-    <View
-      pointerEvents={isOpen ? "auto" : "none"}
-      style={{
-        position: "absolute",
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-      }}
-    >
+    <>
+      {!isOpen ? (
+        <View
+          accessibilityElementsHidden
+          importantForAccessibility="no-hide-descendants"
+          {...edgeSwipeResponder.panHandlers}
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            bottom: 0,
+            width: EDGE_SWIPE_WIDTH,
+            zIndex: 100,
+          }}
+        />
+      ) : null}
+
+      <View
+        pointerEvents={isOpen ? "auto" : "none"}
+        style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 200,
+        }}
+      >
       {/* Backdrop */}
       <Pressable onPress={close} style={{ flex: 1 }}>
         <Animated.View
@@ -123,7 +167,7 @@ export default function SideDrawer() {
         >
           <View style={{ flexDirection: "row", alignItems: "center" }}>
             <Image
-              source={require("../assets/images/Logo.png")}
+              source={require("../assets/images/logo.png")}
               style={{
                 width: s(40),
                 height: s(40),
@@ -299,6 +343,14 @@ export default function SideDrawer() {
           onPress={goToAIShotAnalysis}
         />
 
+        {AUTH_ENABLED ? (
+          <MenuItem
+            icon={auth.session ? "person-circle-outline" : "log-in-outline"}
+            label={auth.session ? "Account" : "Sign in"}
+            onPress={() => go(auth.session ? "/account" : "/auth")}
+          />
+        ) : null}
+
         <View style={{ flex: 1 }} />
 
         {/* ABOUT */}
@@ -363,7 +415,8 @@ export default function SideDrawer() {
           </Text>
         </View>
       </Animated.View>
-    </View>
+      </View>
+    </>
   );
 }
 

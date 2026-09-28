@@ -57,6 +57,7 @@ function MachineCardImage({ uri, fallbackUri, height }: { uri: string | null; fa
     <View style={{ width: "100%", height, backgroundColor: "#F0F1F4" }}>
       {!loaded ? <MachineImageLoading height={height} /> : null}
       <ExpoImage
+        key={displayUri}
         source={{ uri: displayUri }}
         style={{
           position: "absolute",
@@ -297,7 +298,7 @@ export default function SelectMachine() {
                 opacity: pressed ? 0.97 : 1,
               })}
             >
-              <MachineCardImage uri={item.image} height={clamp(v(150), 120, 170)} />
+              <MachineCardImage uri={item.image_url || item.image} fallbackUri={item.fallback_image} height={clamp(v(150), 120, 170)} />
 
               <View style={{ padding: s(14) }}>
                 <Text

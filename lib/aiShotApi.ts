@@ -1,4 +1,7 @@
+import * as FileSystem from "expo-file-system/legacy";
+
 import { captureException } from "./observability";
+import { authFetch } from "./auth";
 
 export const AI_SHOT_API_BASE_URL = process.env.EXPO_PUBLIC_AI_SHOT_API_URL || "http://localhost:8000";
 
@@ -94,7 +97,7 @@ export type ChatResponse = {
 };
 
 export async function sendAIShotChat(messages: ChatMessage[], shotContext?: ShotContext | null): Promise<ChatResponse> {
-  const response = await fetch(`${AI_SHOT_API_BASE_URL}/chat`, {
+  const response = await authFetch(`${AI_SHOT_API_BASE_URL}/chat`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ messages, shot_context: shotContext ?? null }),
@@ -140,7 +143,7 @@ export async function createMediaUploadUrl(params: {
   media_kind: MediaKind;
   user_id?: string;
 }): Promise<MediaUploadUrlResponse> {
-  const response = await fetch(`${AI_SHOT_API_BASE_URL}/media/upload-url`, {
+  const response = await authFetch(`${AI_SHOT_API_BASE_URL}/media/upload-url`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ ...params, user_id: params.user_id || "demo-user" }),
@@ -165,16 +168,14 @@ export async function uploadFileToMediaUrl(params: {
   content_type: string;
   headers?: Record<string, string>;
 }): Promise<void> {
-  const fileResponse = await fetch(params.file_uri);
-  const blob = await fileResponse.blob();
-  const response = await fetch(params.upload_url, {
-    method: "PUT",
+  const response = await FileSystem.uploadAsync(params.upload_url, params.file_uri, {
+    httpMethod: "PUT",
+    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
     headers: { ...(params.headers || {}), "Content-Type": params.content_type },
-    body: blob,
   });
 
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
+  if (response.status < 200 || response.status >= 300) {
+    const text = response.body || "";
     captureException(new Error(text || `Media upload failed with status ${response.status}`), {
       feature: "media_api",
       action: "upload_failed",
@@ -190,7 +191,7 @@ export async function registerMediaUpload(params: {
   storage_mode: "local" | "s3";
   content_type?: string;
 }): Promise<MediaRegisterResponse> {
-  const response = await fetch(`${AI_SHOT_API_BASE_URL}/media/register`, {
+  const response = await authFetch(`${AI_SHOT_API_BASE_URL}/media/register`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(params),
