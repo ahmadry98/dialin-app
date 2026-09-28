@@ -42,3 +42,8 @@ app-example
 /ios
 /android
 .env
+
+# Local App Store media and image backups
+/app-store-assets/
+/assets/images/Logo3.png
+/assets/images/icon2.png

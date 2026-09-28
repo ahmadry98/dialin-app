@@ -1,4 +1,10 @@
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useMemo,
+  useState,
+} from "react";
 
 type DrawerCtx = {
   isOpen: boolean;
@@ -12,14 +18,18 @@ const DrawerContext = createContext<DrawerCtx | null>(null);
 export function DrawerProvider({ children }: { children: React.ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
 
+  const open = useCallback(() => setIsOpen(true), []);
+  const close = useCallback(() => setIsOpen(false), []);
+  const toggle = useCallback(() => setIsOpen((previous) => !previous), []);
+
   const value = useMemo(
     () => ({
       isOpen,
-      open: () => setIsOpen(true),
-      close: () => setIsOpen(false),
-      toggle: () => setIsOpen((p) => !p),
+      open,
+      close,
+      toggle,
     }),
-    [isOpen]
+    [close, isOpen, open, toggle]
   );
 
   return (

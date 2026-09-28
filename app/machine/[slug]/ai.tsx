@@ -4,6 +4,7 @@ import { useLocalSearchParams, router } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 
 import AIShotChat, { type AIShotChatHandle } from "../../../components/AIShotChat";
+import AuthGate from "../../../components/AuthGate";
 import { fetchMachine, type Machine } from "../../../lib/api";
 import { getPreferredGrinder } from "../../../utils/storage";
 import { clamp, s } from "../../../utils/ui";
@@ -33,6 +34,7 @@ export default function AIShotAnalysis() {
   }, [slug]);
 
   return (
+    <AuthGate returnTo={`/machine/${slug}/ai`}>
     <View style={{ flex: 1, backgroundColor: "#F7F7F8" }}>
       <View
         style={{
@@ -98,5 +100,6 @@ export default function AIShotAnalysis() {
         <AIShotChat ref={chatRef} machineName={machine?.name ?? null} grinderName={grinderName} usesBuiltInGrinder={machine?.has_built_in_grinder ?? false} chatSessionKey={`machine:${slug || "unknown"}`} />
       )}
     </View>
+    </AuthGate>
   );
 }

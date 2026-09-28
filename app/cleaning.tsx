@@ -154,6 +154,7 @@ export default function Cleaning() {
 
   return (
     <ScrollView
+      style={{ flex: 1, backgroundColor: "#F6F6F8" }}
       showsVerticalScrollIndicator={false}
       contentContainerStyle={{
         paddingHorizontal: s(20),
