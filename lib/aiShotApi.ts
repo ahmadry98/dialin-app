@@ -1,3 +1,5 @@
+import * as FileSystem from "expo-file-system/legacy";
+
 import { captureException } from "./observability";
 import { authFetch } from "./auth";
 
@@ -166,16 +168,14 @@ export async function uploadFileToMediaUrl(params: {
   content_type: string;
   headers?: Record<string, string>;
 }): Promise<void> {
-  const fileResponse = await fetch(params.file_uri);
-  const blob = await fileResponse.blob();
-  const response = await fetch(params.upload_url, {
-    method: "PUT",
+  const response = await FileSystem.uploadAsync(params.upload_url, params.file_uri, {
+    httpMethod: "PUT",
+    uploadType: FileSystem.FileSystemUploadType.BINARY_CONTENT,
     headers: { ...(params.headers || {}), "Content-Type": params.content_type },
-    body: blob,
   });
 
-  if (!response.ok) {
-    const text = await response.text().catch(() => "");
+  if (response.status < 200 || response.status >= 300) {
+    const text = response.body || "";
     captureException(new Error(text || `Media upload failed with status ${response.status}`), {
       feature: "media_api",
       action: "upload_failed",

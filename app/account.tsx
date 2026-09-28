@@ -1,12 +1,18 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Platform, Pressable, Text, View } from "react-native";
 
 import { deleteAccountData, fetchAccountStatus, type AccountStatus } from "../lib/accountApi";
 import { AUTH_ENABLED, useAuth } from "../lib/auth";
 import { restorePro } from "../lib/subscriptions";
 import { clamp, s } from "../utils/ui";
+
+const STORE_NAME = Platform.OS === "android" ? "Google Play" : "App Store";
+const MANAGE_SUBSCRIPTION_URL = Platform.select({
+  android: "https://play.google.com/store/account/subscriptions?sku=dialedin_pro_annual&package=me.dialedin.mobile",
+  ios: "https://apps.apple.com/account/subscriptions",
+});
 
 export default function AccountScreen() {
   const auth = useAuth();
@@ -36,7 +42,7 @@ export default function AccountScreen() {
       const active = await restorePro(account.user_id);
       Alert.alert(
         active ? "Pro restored" : "No subscription found",
-        active ? "Your Pro subscription is active." : "No active Pro purchase was found for this App Store account.",
+        active ? "Your Pro subscription is active." : `No active Pro purchase was found for this ${STORE_NAME} account.`,
       );
       if (active) {
         const refreshed = await fetchAccountStatus();
@@ -46,6 +52,15 @@ export default function AccountScreen() {
       Alert.alert("Could not restore", value instanceof Error ? value.message : "Please try again.");
     } finally {
       setRestoring(false);
+    }
+  };
+
+  const manageSubscription = async () => {
+    if (!MANAGE_SUBSCRIPTION_URL) return;
+    try {
+      await Linking.openURL(MANAGE_SUBSCRIPTION_URL);
+    } catch {
+      Alert.alert("Could not open subscriptions", `Open ${STORE_NAME} to manage your subscription.`);
     }
   };
 
@@ -81,6 +96,15 @@ export default function AccountScreen() {
         {restoring ? <ActivityIndicator /> : <Text style={{ color: "#111827", fontWeight: "800" }}>Restore purchases</Text>}
       </Pressable>
 
+      {account?.tier === "pro" ? (
+        <Pressable
+          onPress={manageSubscription}
+          style={{ marginTop: s(12), height: s(48), borderWidth: 1, borderColor: "#D1D5DB", borderRadius: s(8), alignItems: "center", justifyContent: "center" }}
+        >
+          <Text style={{ color: "#111827", fontWeight: "800" }}>Manage subscription</Text>
+        </Pressable>
+      ) : null}
+
       <Pressable onPress={async () => { await auth.signOut(); router.replace("/" as never); }} style={{ marginTop: s(12), height: s(48), borderWidth: 1, borderColor: "#D1D5DB", borderRadius: s(8), alignItems: "center", justifyContent: "center" }}>
         <Text style={{ color: "#111827", fontWeight: "800" }}>Sign out</Text>
       </Pressable>
@@ -88,7 +112,7 @@ export default function AccountScreen() {
       <Pressable
         onPress={() => Alert.alert(
           "Delete account?",
-          "Your profile, shot history, uploaded media, and subscription record will be permanently deleted. Manage or cancel an active subscription in the App Store first.",
+          `Your profile, shot history, uploaded media, and subscription record will be permanently deleted. Manage or cancel an active subscription in ${STORE_NAME} first.`,
           [
             { text: "Cancel", style: "cancel" },
             {

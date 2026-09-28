@@ -9,8 +9,9 @@ const SESSION_KEY = "dialedin.auth.session.v1";
 
 type Session = { accessToken: string; idToken: string; refreshToken: string; expiresAt: number };
 type AuthState = { session: Session | null; email: string | null; loading: boolean };
+export type SignUpResult = "created" | "existing-unconfirmed";
 type AuthContextValue = AuthState & {
-  signUp(email: string, password: string): Promise<void>;
+  signUp(email: string, password: string): Promise<SignUpResult>;
   confirmSignUp(email: string, code: string): Promise<void>;
   resendConfirmation(email: string): Promise<void>;
   signIn(email: string, password: string): Promise<void>;
@@ -20,9 +21,21 @@ type AuthContextValue = AuthState & {
   deleteUser(): Promise<void>;
 };
 type CognitoResponse = { AuthenticationResult?: { AccessToken: string; IdToken: string; RefreshToken?: string; ExpiresIn: number } };
+type CognitoErrorPayload = { __type?: string; code?: string; message?: string; Message?: string };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 let currentSession: Session | null = null;
+
+export class CognitoRequestError extends Error {
+  constructor(readonly code: string, message: string) {
+    super(message);
+    this.name = "CognitoRequestError";
+  }
+}
+
+export function isCognitoError(error: unknown, code: string) {
+  return error instanceof CognitoRequestError && error.code === code;
+}
 
 function assertConfigured() {
   if (!CLIENT_ID) throw new Error("DialedIn account configuration is missing from this build.");
@@ -35,8 +48,13 @@ async function cognito(target: string, body: Record<string, unknown>): Promise<C
     headers: { "Content-Type": "application/x-amz-json-1.1", "X-Amz-Target": `AWSCognitoIdentityProviderService.${target}` },
     body: JSON.stringify(body),
   });
-  const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(typeof payload.message === "string" ? payload.message : "The account request failed.");
+  const payload = await response.json().catch(() => ({})) as CognitoResponse & CognitoErrorPayload;
+  if (!response.ok) {
+    const rawCode = payload.__type || payload.code || "CognitoRequestError";
+    const code = rawCode.split("#").pop() || "CognitoRequestError";
+    const message = payload.message || payload.Message || "The account request failed.";
+    throw new CognitoRequestError(code, message);
+  }
   return payload;
 }
 
@@ -112,10 +130,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     ...state,
     async signUp(email, password) {
       const username = email.trim().toLowerCase();
-      await cognito("SignUp", {
-        ClientId: CLIENT_ID, Username: username, Password: password,
-        UserAttributes: [{ Name: "email", Value: username }],
-      });
+      try {
+        await cognito("SignUp", {
+          ClientId: CLIENT_ID, Username: username, Password: password,
+          UserAttributes: [{ Name: "email", Value: username }],
+        });
+        return "created";
+      } catch (error) {
+        if (!isCognitoError(error, "UsernameExistsException")) throw error;
+        try {
+          await cognito("ResendConfirmationCode", { ClientId: CLIENT_ID, Username: username });
+          return "existing-unconfirmed";
+        } catch (resendError) {
+          if (isCognitoError(resendError, "InvalidParameterException") || isCognitoError(resendError, "NotAuthorizedException")) {
+            throw new Error("An account with this email already exists. Sign in instead.");
+          }
+          throw resendError;
+        }
+      }
     },
     async confirmSignUp(email, code) {
       await cognito("ConfirmSignUp", { ClientId: CLIENT_ID, Username: email.trim().toLowerCase(), ConfirmationCode: code.trim() });

@@ -272,8 +272,9 @@ const LOCAL_GRINDERS: Grinder[] = sortGrinders([
 
 function normalizeProfileMachine(profile: EquipmentProfileMachine): Machine {
   const local = LOCAL_MACHINES[profile.slug];
-  const profileImage = profileImageUri(profile);
-  const localImage = local ? localImageUri(local.image) : null;
+  const bundledProfileImage = localProfileImageUri(profile);
+  const localImage = (local ? localImageUri(local.image) : null) || bundledProfileImage;
+  const profileImage = profileHasReviewedImage(profile) ? reviewedMachineImageUrl(profile) : localImage;
   const target = profile.brew_defaults?.target_total_shot_seconds;
   const visibleTarget = profile.brew_defaults?.target_visible_flow_seconds;
   const baselineSeconds = target && target.length >= 2 ? `${target[0]}-${target[1]}` : local?.baseline.seconds || "25-32";
@@ -369,11 +370,7 @@ const LOCAL_PROFILE_IMAGES: Record<string, LocalMachine["image"]> = {
   "machine-lelit-victoria-pl91t": require("../assets/images/machines/Victoria-on-Counter-4.jpg"),
 };
 
-function profileImageUri(profile: EquipmentProfileMachine): string | null {
-  if (profileHasReviewedImage(profile)) {
-    return reviewedMachineImageUrl(profile);
-  }
-
+function localProfileImageUri(profile: EquipmentProfileMachine): string | null {
   const candidates = [profile.image?.local_asset_key, profile.slug ? `machine-${profile.slug}` : null].filter(Boolean) as string[];
   for (const key of candidates) {
     const source = LOCAL_PROFILE_IMAGES[key];

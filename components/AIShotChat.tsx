@@ -279,11 +279,13 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
   async function attachMedia() {
     if (isSending) return;
 
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) {
-      captureEvent("media_permission_denied", { feature: "dialchat" });
-      Alert.alert("Permission needed", "Allow photo library access to attach a photo or shot video.");
-      return;
+    if (Platform.OS === "ios") {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (!permission.granted) {
+        captureEvent("media_permission_denied", { feature: "dialchat" });
+        Alert.alert("Permission needed", "Allow photo library access to attach a photo or shot video.");
+        return;
+      }
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -348,7 +350,7 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
     let attemptedContentType = videoContentType;
 
     setError(null);
-    setActivityLabel(audioSupported ? "Extracting shot audio..." : "Preparing smaller video...");
+    setActivityLabel(audioSupported ? "Extracting shot audio..." : "Preparing video...");
     setIsSending(true);
     try {
       const audioUri = await extractShotAudio(asset.uri);
@@ -363,7 +365,7 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
         media_kind: mediaKind,
         user_id: shotContext.user_id || "demo-user",
       });
-      setActivityLabel(isAudioUpload ? "Uploading shot audio..." : "Uploading compressed video...");
+      setActivityLabel(isAudioUpload ? "Uploading shot audio..." : "Uploading video...");
       await uploadFileToMediaUrl({
         file_uri: audioUri || asset.uri,
         upload_url: target.upload_url,
@@ -406,7 +408,7 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
   }
 
 
-  const composerBottom = Platform.OS === "ios" ? keyboardHeight : 0;
+  const composerBottom = keyboardHeight;
   const composerPaddingBottom = keyboardHeight > 0 ? s(8) : Math.max(insets.bottom, s(8));
 
   return (
@@ -418,7 +420,7 @@ function AIShotChat({ machineName, grinderName, usesBuiltInGrinder, chatSessionK
           onContentSizeChange={() => scrollToLatest(false)}
           contentContainerStyle={{
             padding: s(16),
-            // The composer moves above the iOS keyboard, so the message list
+            // The composer moves above the keyboard, so the message list
             // needs matching room to scroll its newest message into view.
             paddingBottom: composerHeight + keyboardHeight + s(24),
             gap: s(12),
@@ -647,6 +649,33 @@ function activityLabelFor(message: LocalMessage): string {
 
 function cleanErrorMessage(message: string): string {
   if (/413|request entity too large|payload too large/i.test(message)) return "That photo is still too large to analyze. Try a closer crop of the machine/grinder or take a screenshot and send that.";
+  const quotaExceeded = parseQuotaExceededError(message);
+  if (quotaExceeded) {
+    const resetDate = formatQuotaResetDate(quotaExceeded.retryPeriod);
+    return `You've used your 3 free AI analyses this month. Upgrade to Pro for up to 20 analyses per month, or try again on ${resetDate}.`;
+  }
+
+function parseQuotaExceededError(message: string): { retryPeriod?: string } | null {
+  try {
+    const payload = JSON.parse(message) as { detail?: { code?: string; retry_period?: string } };
+    if (payload.detail?.code === "quota_exceeded") {
+      return { retryPeriod: payload.detail.retry_period };
+    }
+  } catch {
+    // The response might be plain text, so fall through to the generic errors.
+  }
+
+  return null;
+}
+
+function formatQuotaResetDate(retryPeriod?: string): string {
+  const match = retryPeriod?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) return "next month";
+
+  const [, year, month, day] = match;
+  const date = new Date(Number(year), Number(month) - 1, Number(day));
+  return new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric" }).format(date);
+}
   if (/network request failed/i.test(message)) return "Could not reach DialChat. Check that the backend is running and your phone can access it.";
   if (/internal server error/i.test(message)) return "DialChat hit a server error. Try again, or send a shorter video.";
   return message;

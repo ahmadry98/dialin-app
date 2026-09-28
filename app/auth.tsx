@@ -12,7 +12,7 @@ import {
   View,
 } from "react-native";
 
-import { useAuth } from "../lib/auth";
+import { isCognitoError, useAuth } from "../lib/auth";
 import { clamp, s } from "../utils/ui";
 
 type Mode = "signIn" | "signUp" | "confirm" | "forgot" | "reset";
@@ -40,13 +40,20 @@ export default function AuthScreen() {
     setNotice("");
     try {
       if (mode === "signUp") {
-        await auth.signUp(email, password);
+        const result = await auth.signUp(email, password);
         setMode("confirm");
-        setNotice("We sent a verification code to your email.");
+        setNotice(result === "existing-unconfirmed"
+          ? "This signup was not finished. We sent a new verification code to your email."
+          : "We sent a verification code to your email.");
       } else if (mode === "confirm") {
         await auth.confirmSignUp(email, code);
-        setMode("signIn");
-        setNotice("Email verified. You can sign in now.");
+        try {
+          await auth.signIn(email, password);
+          router.replace((params.returnTo || "/ai") as never);
+        } catch {
+          setMode("signIn");
+          setNotice("Email verified. Sign in with the password from your original signup, or reset it if needed.");
+        }
       } else if (mode === "forgot") {
         await auth.requestPasswordReset(email);
         setMode("reset");
@@ -60,6 +67,17 @@ export default function AuthScreen() {
         router.replace((params.returnTo || "/ai") as never);
       }
     } catch (submitError) {
+      if (mode === "signIn" && isCognitoError(submitError, "UserNotConfirmedException")) {
+        setMode("confirm");
+        setCode("");
+        try {
+          await auth.resendConfirmation(email);
+          setNotice("Your signup is not finished yet. We sent a new verification code to your email.");
+        } catch {
+          setNotice("Your signup is not finished yet. Enter your latest code or request a new one below.");
+        }
+        return;
+      }
       setError(submitError instanceof Error ? submitError.message : "Something went wrong.");
     } finally {
       setBusy(false);
@@ -120,7 +138,7 @@ export default function AuthScreen() {
             <Pressable onPress={() => { setMode("signIn"); setError(""); }} style={{ paddingVertical: s(18), alignItems: "center" }}><Text style={{ color: "#111827", fontWeight: "800" }}>Back to sign in</Text></Pressable>
           )}
 
-          {mode === "confirm" ? <Pressable onPress={async () => { try { await auth.resendConfirmation(email); setNotice("A new code was sent."); } catch (e) { setError(e instanceof Error ? e.message : "Could not resend code."); } }} style={{ alignItems: "center" }}><Text style={{ color: "#4B5563" }}>Resend verification code</Text></Pressable> : null}
+          {mode === "confirm" ? <Pressable onPress={async () => { setError(""); try { await auth.resendConfirmation(email); setNotice("A new code was sent."); } catch (e) { setError(e instanceof Error ? e.message : "Could not resend code."); } }} style={{ alignItems: "center" }}><Text style={{ color: "#4B5563" }}>Resend verification code</Text></Pressable> : null}
         </View>
       </ScrollView>
     </KeyboardAvoidingView>

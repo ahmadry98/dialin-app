@@ -135,6 +135,7 @@ function MachineHeroImage({ uri, fallbackUri, height }: { uri: string | null; fa
   if (!displayUri) return <MachineImagePlaceholder height={height} />;
   return (
     <ExpoImage
+      key={displayUri}
       source={{ uri: displayUri }}
       style={{ width: "100%", height, backgroundColor: "#F4F2EE" }}
       contentFit="cover"

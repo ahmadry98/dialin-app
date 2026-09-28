@@ -108,7 +108,7 @@ export async function loadProPackage(userId: string): Promise<ProPurchaseOption>
     const failure = purchasesFailure(error);
     const errorCode = String(failure.code ?? "");
     if (offeringsError && ["2", "5", "23", "32"].includes(errorCode)) {
-      throw new SubscriptionLoadError("Apple has not returned the Pro subscription for this storefront.", "S3");
+      throw new SubscriptionLoadError("The Pro subscription is not available in this store.", "S3");
     }
     throw new SubscriptionLoadError("The subscription service could not be reached.", "S2");
   }
@@ -122,7 +122,7 @@ export async function loadProPackage(userId: string): Promise<ProPurchaseOption>
       offering_count: offerings ? Object.keys(offerings.all).length : 0,
       offerings_error_code: purchasesFailure(offeringsError).code,
     });
-    throw new SubscriptionLoadError("Apple has not returned the Pro subscription for this storefront.", "S3");
+    throw new SubscriptionLoadError("The Pro subscription is not available in this store.", "S3");
   }
 
   captureEvent("subscriptions.product_loaded", { source: "direct", product_id: product.identifier });

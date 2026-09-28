@@ -1,7 +1,7 @@
 import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import React, { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Linking, Pressable, ScrollView, Text, View } from "react-native";
+import { ActivityIndicator, Alert, Linking, Platform, Pressable, ScrollView, Text, View } from "react-native";
 
 import { fetchAccountStatus } from "../lib/accountApi";
 import { captureException } from "../lib/observability";
@@ -10,6 +10,7 @@ import { clamp, s } from "../utils/ui";
 
 const PRIVACY_URL = "https://dialedin.me/privacy";
 const TERMS_URL = "https://dialedin.me/terms";
+const STORE_NAME = Platform.OS === "android" ? "Google Play" : "App Store";
 
 export default function UpgradeScreen() {
   const [offer, setOffer] = useState<ProPurchaseOption | null>(null);
@@ -102,7 +103,7 @@ export default function UpgradeScreen() {
                 {buying ? <ActivityIndicator color="white" /> : <Text style={{ color: "white", fontFamily: "Nunito_700Bold", fontSize: 16 }}>Start Pro</Text>}
               </Pressable>
               <Pressable disabled={buying} onPress={restore} style={{ paddingVertical: s(18), alignItems: "center" }}><Text style={{ color: "#374151", fontWeight: "800" }}>Restore purchases</Text></Pressable>
-              <Text style={{ color: "#6B7280", fontSize: 12, lineHeight: 17, textAlign: "center" }}>Payment is charged to your App Store account. The subscription renews annually unless canceled in your App Store settings.</Text>
+              <Text style={{ color: "#6B7280", fontSize: 12, lineHeight: 17, textAlign: "center" }}>Payment is charged to your {STORE_NAME} account. The subscription renews annually unless canceled in your {STORE_NAME} settings.</Text>
               <View style={{ marginTop: s(14), flexDirection: "row", justifyContent: "center", gap: s(22) }}>
                 <Pressable onPress={() => Linking.openURL(TERMS_URL)} accessibilityRole="link"><Text style={{ color: "#374151", fontSize: 13, fontWeight: "700", textDecorationLine: "underline" }}>Terms of Use</Text></Pressable>
                 <Pressable onPress={() => Linking.openURL(PRIVACY_URL)} accessibilityRole="link"><Text style={{ color: "#374151", fontSize: 13, fontWeight: "700", textDecorationLine: "underline" }}>Privacy Policy</Text></Pressable>
